@@ -16,12 +16,6 @@ def GraytoRGB(img):
   colorImg[:, :, 2] = img
   return colorImg
 
-<<<<<<< HEAD
-# need reshape after return
-def getANN(filepath):
-  file = read(filepath, 'rb')
-  a = []
-=======
 def runNNF(fileA, fileB):
   subprocess.call("ANN.exe %s %s ann.raw annd.raw"%(fileA, fileB), shell=True)
 
@@ -42,29 +36,11 @@ def getNNF(annFile, anndFile):
 
   file = open(anndFile, 'rb')
   annd = []
->>>>>>> a0ce5d9b48285ce7d90bd01b88bfb860dd6d3eed
   while True:
     rgb = file.read(4)
     if len(rgb) != 4 or rgb == '':
       break
-<<<<<<< HEAD
-    data = rgb[0]<<16 | rgb[1]<<8 | rgb[2]
-    by = data >> 12 
-    bx = data & 0x00000FFF
-    a.append((by, bx))
-  return np.array(a)
 
-def getANND(filepath):
-  file = read(filepath, 'rb')
-  a = []
-  while True:
-    rgb = file.read(3)
-    if rgb == '':
-      break
-    data = rgb[0]<<16 | rgb[1]<<8 | rgb[2]
-    a.append(data)
-  return np.array(a)
-=======
     else:
       rgb = map(ord, rgb)
     data = rgb[2]<<16 | rgb[1]<<8 | rgb[0]
@@ -72,4 +48,3 @@ def getANND(filepath):
   file.close()
 
   return np.array(ann), np.array(annd)
->>>>>>> a0ce5d9b48285ce7d90bd01b88bfb860dd6d3eed
