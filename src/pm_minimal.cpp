@@ -105,7 +105,7 @@ void save_bitmap(BITMAP *bmp, const char *filename) {
    ------------------------------------------------------------------------- */
 
 int patch_w  = 7;
-int pm_iters = 5;
+int pm_iters = 10;
 int rs_max   = INT_MAX;
 
 
