@@ -23,7 +23,11 @@
 #define MAX(a, b) ((a)>(b)?(a):(b))
 #define MIN(a, b) ((a)<(b)?(a):(b))
 #endif
+
 #define INT_MAX 99999999
+#define XY_TO_INT(x, y) (((y)<<12)|(x))
+#define INT_TO_X(v) ((v)&((1<<12)-1))
+#define INT_TO_Y(v) ((v)>>12)
 /* -------------------------------------------------------------------------
    BITMAP: Minimal image class
    ------------------------------------------------------------------------- */
@@ -43,7 +47,7 @@ void check_im() {
 }
 
 BITMAP *load_bitmap(const char *filename) {
-  check_im();
+  // check_im();
   char rawname[256], txtname[256];
   strcpy(rawname, filename);
   strcpy(txtname, filename);
@@ -52,9 +56,11 @@ BITMAP *load_bitmap(const char *filename) {
   sprintf(strstr(txtname, "."), ".txt");
   char buf[256];
   sprintf(buf, "convert %s rgba:%s", filename, rawname);
-  if (system(buf) != 0) { fprintf(stderr, "Error reading image '%s': ImageMagick convert gave an error\n", filename); exit(1); }
+  // if (system(buf) != 0) { fprintf(stderr, "Error reading image '%s': ImageMagick convert gave an error\n", filename); exit(1); }
+  system(buf);
   sprintf(buf, "identify -format \"%%w %%h\" %s > %s", filename, txtname);
-  if (system(buf) != 0) { fprintf(stderr, "Error reading image '%s': ImageMagick identify gave an error\n", filename); exit(1); }
+  // if (system(buf) != 0) { fprintf(stderr, "Error reading image '%s': ImageMagick identify gave an error\n", filename); exit(1); }
+  system(buf);
   FILE *f = fopen(txtname, "rt");
   if (!f) { fprintf(stderr, "Error reading image '%s': could not read output of ImageMagick identify\n", filename); exit(1); }
   int w = 0, h = 0;
@@ -73,7 +79,7 @@ BITMAP *load_bitmap(const char *filename) {
 }
 
 void save_bitmap(BITMAP *bmp, const char *filename) {
-  check_im();
+  // check_im();
   char rawname[256];
   strcpy(rawname, filename);
   if (!strstr(rawname, ".")) { fprintf(stderr, "Error writing image '%s': no extension found\n", filename); exit(1); }
@@ -81,13 +87,17 @@ void save_bitmap(BITMAP *bmp, const char *filename) {
   char buf[256];
   FILE *f = fopen(rawname, "wb");
   if (!f) { fprintf(stderr, "Error writing image '%s': could not open raw temporary file\n", filename); exit(1); }
-  unsigned char *p = (unsigned char *) bmp->data;
-  for (int i = 0; i < bmp->w*bmp->h*4; i++) {
-    fputc(*p++, f);
-  }
+  // unsigned char *p = (unsigned char *) bmp->data;
+  // for (int i = 0; i < bmp->w*bmp->h*4; i++) {
+  //   if (INT_TO_X(*p) > 4000 || INT_TO_Y(*p) > 4000)
+  //     printf("too big at %d: %d,%d", *p, INT_TO_X(*p), INT_TO_Y(*p));
+  //   fputc(*p++, f);
+  // }
+  fwrite(bmp->data, sizeof(int), bmp->w*bmp->h, f);
   fclose(f);
-  sprintf(buf, "convert -size %dx%d -depth 8 rgba:%s %s", bmp->w, bmp->h, rawname, filename);
-  if (system(buf) != 0) { fprintf(stderr, "Error writing image '%s': ImageMagick convert gave an error\n", filename); exit(1); }
+  // sprintf(buf, "convert -size %dx%d -depth 8 rgba:%s %s", bmp->w, bmp->h, rawname, filename);
+  // system(buf);
+  // if (system(buf) != 0) { fprintf(stderr, "Error writing image '%s': ImageMagick convert gave an error\n", filename); exit(1); }
 }
 
 /* -------------------------------------------------------------------------
@@ -95,12 +105,10 @@ void save_bitmap(BITMAP *bmp, const char *filename) {
    ------------------------------------------------------------------------- */
 
 int patch_w  = 7;
-int pm_iters = 5;
+int pm_iters = 10;
 int rs_max   = INT_MAX;
 
-#define XY_TO_INT(x, y) (((y)<<12)|(x))
-#define INT_TO_X(v) ((v)&((1<<12)-1))
-#define INT_TO_Y(v) ((v)>>12)
+
 
 /* Measure distance between 2 patches with upper left corners (ax, ay) and (bx, by), terminating early if we exceed a cutoff distance.
    You could implement your own descriptor here. */

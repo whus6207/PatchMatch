@@ -44,3 +44,10 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+
+
+# Excutable
+*.exe
+*.raw
+.txt
+*.out
