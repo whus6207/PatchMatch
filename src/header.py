@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as npl
+import subprocess
 
 def RGBtoGray(img):
   gray = np.dot(img[..., :3], [0.299, 0.587, 0.144])
@@ -15,16 +16,32 @@ def GraytoRGB(img):
   colorImg[:, :, 2] = img
   return colorImg
 
-# need reshape after return
-def getNNF(filepath):
-  file = read(filepath, 'rb')
-  a = []
+def getNNF(fileA, fileB):
+  subprocess.call("a.exe %s %s ann.raw annd.raw"%(fileA, fileB), shell=True)
+
+  file = open('ann.raw', 'rb')
+  ann = []
   while True:
-    rgb = file.read(3)
-    if rgb == '':
+    rgb = file.read(4)
+    if len(rgb) != 4 or rgb == '':
       break
-    data = rgb[0]<<16 | rgb[1]<<8 | rgb[2]
-    by = data >> 12 
-    bx = data & 0x00000FFF
-    a.append((by, bx))
-  return np.array(a)
+    else:
+      rgb = map(ord, rgb)
+    data = rgb[2]<<16 | rgb[1]<<8 | rgb[0]
+    ann.append((data >> 12, data & 0x00000FFF))
+  file.close()
+
+
+  file = open('annd.raw', 'rb')
+  annd = []
+  while True:
+    rgb = file.read(4)
+    if len(rgb) != 4 or rgb == '':
+      break
+    else:
+      rgb = map(ord, rgb)
+    data = rgb[2]<<16 | rgb[1]<<8 | rgb[0]
+    annd.append(data)
+  file.close()
+
+  return np.array(ann), np.array(annd)
