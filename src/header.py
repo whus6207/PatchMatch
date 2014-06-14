@@ -16,7 +16,7 @@ def GraytoRGB(img):
   return colorImg
 
 # need reshape after return
-def getNNF(filepath):
+def getANN(filepath):
   file = read(filepath, 'rb')
   a = []
   while True:
@@ -27,4 +27,15 @@ def getNNF(filepath):
     by = data >> 12 
     bx = data & 0x00000FFF
     a.append((by, bx))
+  return np.array(a)
+
+def getANND(filepath):
+  file = read(filepath, 'rb')
+  a = []
+  while True:
+    rgb = file.read(3)
+    if rgb == '':
+      break
+    data = rgb[0]<<16 | rgb[1]<<8 | rgb[2]
+    a.append(data)
   return np.array(a)
