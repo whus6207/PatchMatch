@@ -81,97 +81,18 @@ def inpaint(img, mask):
   while mask.remains() > 0:
     xs, ys = np.where(mask.getBorder() > 0)
     for i in range(len(xs)):
-      ann, annd = getNNF()
+      srcBlock = getblock(img, (xs[i], ys[i]))
+      npl.imsave('block.jpg', srcBlock)
 
-# def inpaint(img, mask):
-#   xs, ys = np.where(mask.border > 0)
-#   scoreMap = mask.border.copy()
-#   tarPosMap = {}
-#   srcBlockMap = {}
+      ann, annd = getNNF('block.jpg', img.path)
+      ann.reshape((srcBlock.shape[0], srcBlock.shape[1], 2))
 
-#   # NNF(img, (xs, ys), 5)
-#   for iteration in range(10):
-#     for i in range(len(xs)):
-#       if tarPosMap.has_key((xs[i], ys[i])):
-#         OriScore = scoreMap[(xs[i], ys[i])]
-#         # have value, update it
-#         cpos = (xs[i], ys[i])
-#         ctpos = tarPosMap[cpos]
-#         csrcblock = srcBlockMap[cpos]
-#         cscore = scoreMap[cpos]
-#         # find nearby border for better score
-
-#         if iteration %2 == 0:
-#           offsets = [[-1, 0], [0, -1]]
-#         else:
-#           offsets = [[1, 0], [0, 1]]
-#         for offset in offsets:
-#           Pos1 = (cpos[0]+offset[0], cpos[1])
-#           if scoreMap[Pos1[0], Pos1[1]] > 0:
-#             tarPos1 = (tarPosMap[Pos1][0]-offset[0], tarPosMap[Pos1][1])
-#             tarBlock1 = convert(getblock(img, tarPos1))
-#             score1 = c2d(csrcblock, tarBlock1, mode='same').max()
-#             if score1 > cscore:
-#               cscore = scoreMap[xs[i], ys[i]] = score1
-#               tarPosMap[cpos] = tarPos1
-
-#         for x, y in [(cpos[0]-1, cpos[1]), (cpos[0], cpos[1]-1)]:
-#           if scoreMap[x, y] > 0 and scoreMap[x, y] > cscore:
-#             tmpPos = tarPosMap[(x, y)]
-#             for l, k in getNearBy(tmpPos, size=3, limit=img.shape):
-#               block = convert(getblock(img, (l, k)))
-#               score = c2d(csrcblock, block, mode='same').max()
-#               if score > cscore:
-#                 cscore = scoreMap[xs[i], ys[i]] = score
-#                 tarPosMap[(xs[i], ys[i])] = (l, k)
-#         # update randomly 5 time
-#         for time in range(5):
-#           while True:
-#             pos = (random.randint(0, img.shape[0]-1), random.randint(0, img.shape[1]-1))
-#             if not mask.isMasked(pos):
-#               break
-#           tarBlock = convert(getblock(img, pos))
-#           score = c2d(csrcblock, tarBlock, mode='same').max()
-#           if score > cscore:
-#             cscore = scoreMap[xs[i], ys[i]] = score
-#             tarPosMap[(xs[i], ys[i])] = pos
-
-#         if cscore != OriScore:
-#           update += 1
-#       else:
-#         # random assign value
-#         while True:
-#           pos = (random.randint(0, img.shape[0]-1), random.randint(0, img.shape[1]-1))
-#           if not mask.isMasked(pos):
-#             break
-#         srcblock = convert(getblock(img, (xs[i], ys[i])))
-#         tarBlock = convert(getblock(img, pos))
-#         score = c2d(srcblock, tarBlock, mode='same').max()
-
-#         scoreMap[xs[i], ys[i]] = score
-#         srcBlockMap[(xs[i], ys[i])] = srcblock
-#         tarPosMap[(xs[i], ys[i])] = pos
-      
-#       # update the image
-#       srcPos = (xs[i], ys[i])
-#       tarPos = tarPosMap[srcPos]
-#       tarBlock = getblock(img, tarPos, size=5)
-#       for ii in range(tarBlock.shape[0]):
-#         for jj in range(tarBlock.shape[1]):
-#           l = (xs[i]-tarBlock.shape[0]/2+ii, ys[i]-tarBlock.shape[1]/2+jj)
-#           if mask.isMasked(l):
-#             img[l] = tarBlock[ii, jj]
-
-#       # updating the frame
-#       PlayerQueue.put(img.copy())
-
-#     if iteration == 0:
-#       print 'first finish'
-#     else:
-#       print 'second finish'
-#   running.pop()
-#   exit(1)
-
+      for ii in range(srcBlock.shape[0]):
+        for jj in range(srcBlock.shape[1]):
+          l = (xs[i]-srcBlock.shape[0]/2+ii, ys[i]-srcBlock.shape[1]/2+jj)
+          if mask.isMasked(l):
+            img[l[0], l[1]] = img[ann[ii, jj, 0], ann[ii, jj, 1]]
+      mask.shrink()
 
 def getblock(img, pos, size=11):
   global baseline

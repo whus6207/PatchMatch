@@ -16,10 +16,12 @@ def GraytoRGB(img):
   colorImg[:, :, 2] = img
   return colorImg
 
-def getNNF(fileA, fileB):
-  subprocess.call("a.exe %s %s ann.raw annd.raw"%(fileA, fileB), shell=True)
+def runNNF(fileA, fileB):
+  subprocess.call("ANN.exe %s %s ann.raw annd.raw"%(fileA, fileB), shell=True)
 
-  file = open('ann.raw', 'rb')
+def getNNF(annFile, anndFile):
+  # subprocess.call("ANN.exe %s %s ann.raw annd.raw"%(fileA, fileB), shell=True)
+  file = open(annFile, 'rb')
   ann = []
   while True:
     rgb = file.read(4)
@@ -32,7 +34,7 @@ def getNNF(fileA, fileB):
   file.close()
 
 
-  file = open('annd.raw', 'rb')
+  file = open(anndFile, 'rb')
   annd = []
   while True:
     rgb = file.read(4)
