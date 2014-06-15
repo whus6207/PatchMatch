@@ -23,16 +23,16 @@ class App(threading.Thread):
     while self.running:
       try:
         self.img = self.queue.get(block=False)
+        if self.img == 'exit':
+          self.running.pop()
+          break
       except Queue.Empty:
         pass
-      except Exception, e:
-        print e
-        exit(1)
       else:
         self.changeImg()
-      time.sleep(0)
+      time.sleep(0.5)
   def changeImg(self):
-    cv2.imshow('frame', self.img)
+    cv2.imshow('frame', swap2cv2(self.img))
     if (cv2.waitKey(1) & 0xFF) == ord('q'):
       self.running.pop()
 
@@ -42,16 +42,43 @@ Player = App(PlayerQueue, running)
 Player.start()
 
 
+def swap2cv2(img):
+  img = img.copy()
+  t = img[:, :, 0].copy()
+  img[:, :, 0] = img[:, :, 2].copy()
+  img[:, :, 2] = t.copy()
+  return img
+
 class Mask:
   def __init__(self, img):
     self.img = RGBtoGray(img)
     self.img[self.img>=126] = 255
     self.img[self.img<126] = 0
 
-    self.border = laplace(self.img);
-    # self.component, self.componentN = label(self.img, generate_binary_structure(2,2))
-    # self.component = (self.component).astype('uint8')
+    self.border = sobel(self.img) * 255
+    self.oriimg = self.img.copy()
 
+    self.shrink()
+
+  def shrink(self):
+    xs, ys = np.where(self.border > 0)
+    for index, (x, y) in enumerate(zip(xs, ys)):
+      # update the border
+      self.border[x, y] = 0
+      if self.isMasked((x, y)):
+        self.img[x, y] = 0
+
+      for xx, yy in getNearBy((x,y)):
+        if self.isMasked((xx, yy)):
+          self.border[xx, yy] = 255
+          break
+    # PlayerQueue.put(self.img.copy())
+  def remains(self):
+    n = (self.img > 0).sum()
+    print n
+    return n
+  def getBorder(self):
+    return self.border.copy()
   def isMasked(self, pos):
     x, y = pos
     return (self.img[x, y] != 0)
@@ -62,7 +89,7 @@ class Mask:
           img[i, j] = np.zeros(3)
     return img
   def showImg(self):
-    cv2.imshow('mask-image', self.img)
+    cv2.imshow('mask-image', swap2cv2(self.img))
     cv2.waitKey(0)
 
 def getNearBy(pos, size=3, limit=(None, None)):
@@ -77,24 +104,23 @@ def getNearBy(pos, size=3, limit=(None, None)):
         y = 2*limit[1] - y - 1
       yield (x, y)        
 
-def inpaint(img, mask):
+def inpaint(imgPath, img, mask):
   while mask.remains() > 0:
     xs, ys = np.where(mask.getBorder() > 0)
-    for i in range(len(xs)):
-      srcBlock = getblock(img, (xs[i], ys[i]))
+    for x, y in zip(xs, ys):
+      srcBlock = getblock(img, (x, y))
       npl.imsave('block.jpg', srcBlock)
 
-      ann, annd = getNNF('block.jpg', img.path)
-      ann.reshape((srcBlock.shape[0], srcBlock.shape[1], 2))
+      runNNF('block.jpg', imgPath)
+      ann, annd = getNNF('ann.raw', 'annd.raw')
+      ann = ann.reshape((srcBlock.shape[0], srcBlock.shape[1], 2))
 
-      for ii in range(srcBlock.shape[0]):
-        for jj in range(srcBlock.shape[1]):
-          l = (xs[i]-srcBlock.shape[0]/2+ii, ys[i]-srcBlock.shape[1]/2+jj)
-          if mask.isMasked(l):
-            img[l[0], l[1]] = img[ann[ii, jj, 0], ann[ii, jj, 1]]
-      mask.shrink()
+      img[x, y] = img[ann[ann.shape[0]/2, ann.shape[0]/2, 0], ann[ann.shape[0]/2, ann.shape[0]/2, 1]]
+      PlayerQueue.put(img.copy())
+    mask.shrink()
 
-def getblock(img, pos, size=11):
+
+def getblock(img, pos, size=25):
   global baseline
   # block = np.zeros((size*size, 3))
   # for index, (x, y) in enumerate(getNearBy(pos, size, limit=img.shape)):
@@ -115,10 +141,13 @@ def convert(block):
   block = (block - block.mean())/block.std()
   return block
 
-# origin = npl.imread('../image/example.jpg')[::2, ::2]
-# mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2])
+origin = npl.imread('../image/example.jpg')
+origin2 = cv2.imread('../image/example.jpg')
+mask = Mask(npl.imread('../image/example-mask.jpg'))
+# while mask.remains() > 0:
+  # mask.shrink()
+# PlayerQueue.put('exit')
 
-
-# vacantImg = mask.mask(origin)
-# inpaint(vacantImg, mask)
+vacantImg = mask.mask(origin)
+inpaint('../image/example.jpg', vacantImg, mask)
 # running.pop()
