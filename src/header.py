@@ -40,6 +40,7 @@ def getNNF(annFile, anndFile):
     rgb = file.read(4)
     if len(rgb) != 4 or rgb == '':
       break
+
     else:
       rgb = map(ord, rgb)
     data = rgb[2]<<16 | rgb[1]<<8 | rgb[0]
