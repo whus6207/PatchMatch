@@ -115,8 +115,8 @@ def patchmatch(a, b):
 def main():
   import matplotlib.pyplot as npl
   tt = 'block.jpg'
-  # tt2 = '../image/example.jpg'
-  tt2 = tt
+  tt2 = '../image/example.jpg'
+  # tt2 = tt
 
   img1 = npl.imread(tt)
   img2 = npl.imread(tt2)

@@ -68,7 +68,7 @@ def patchmatch(bitmap1, bitmap2):
     return ann, annd
 
 
-def main(tt='block.jpg', tt2='block.jpg'):
+def main(tt='block.jpg', tt2='../image/example.jpg'):
     loadDll("NNF")
 
     # test utility
@@ -92,7 +92,7 @@ def main(tt='block.jpg', tt2='block.jpg'):
 
     # check data
     print 'data1: ', bitmap1.contents
-    print 'data2: ', bitmap1.contents
+    print 'data2: ', bitmap2.contents
     print 'check distance function'.center(100, '-')
     print 'dist (0,0) -> (0, 0): ', dll.dist(bitmap1, bitmap2, 10, 18, 10, 18)
     print ('all checked, NNF for file %s, %s'%(tt, tt2)).center(100, '-')
