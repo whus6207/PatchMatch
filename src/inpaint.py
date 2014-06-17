@@ -5,7 +5,7 @@ import Queue, threading, time
 from scipy.ndimage import *
 from header import *
 from scipy.signal import correlate2d  as c2d
-from NNF import *
+from NNF-DLL import *
 
 import random
 import sys
@@ -100,18 +100,18 @@ def inpaint(img, mask):
     xs, ys = np.where(mask.getBorder() > 0)
     for x, y in zip(xs, ys):
       srcBlock = getblock(img, (x, y))
-      originPos = (x - srcBlock.shape[0], y - srcBlock.shape[1])
+      # originPos = (x - srcBlock.shape[0], y - srcBlock.shape[1])
 
       ann, annd = patchmatch(srcBlock, img)
       ann = ann.reshape((srcBlock.shape[0], srcBlock.shape[1], 2))
 
-      target = ann.shape[0]/2, ann.shape[0]/2
-      for i in range(ann.shape[0] - patch_w):
-        for j in range(ann.shape[1] - patch_w):
-          target = ann[i, j]
-          if mask.isMasked((originPos[0] + i, originPos[1] + j)):
-            img[x, y] = img[target[0], target[1]]
-      # img[x, y] = img[ann[ann.shape[0]/2, ann.shape[0]/2, 0], ann[ann.shape[0]/2, ann.shape[0]/2, 1]]
+      # target = ann.shape[0]/2, ann.shape[0]/2
+      # for i in range(ann.shape[0] - patch_w):
+      #   for j in range(ann.shape[1] - patch_w):
+      #     target = ann[i, j]
+      #     if mask.isMasked((originPos[0] + i, originPos[1] + j)):
+      #       img[x, y] = img[target[0], target[1]]
+      img[x, y] = img[ann[ann.shape[0]/2, ann.shape[0]/2, 0], ann[ann.shape[0]/2, ann.shape[0]/2, 1]]
       # print img.shape
       PlayerQueue.put(cv2.resize(img.copy(), (img.shape[1]*2, img.shape[0]*2)))
     mask.shrink()
