@@ -5,13 +5,11 @@ import Queue, threading, time
 from scipy.ndimage import *
 from header import *
 from scipy.signal import correlate2d  as c2d
-
+from NNF import *
 
 import random
 import sys
 sys.setrecursionlimit(10000)
-
-baseline = None
 
 class App(threading.Thread):
   def __init__(self, queue, running):
@@ -23,16 +21,14 @@ class App(threading.Thread):
     while self.running:
       try:
         self.img = self.queue.get(block=False)
-        if self.img == 'exit':
-          self.running.pop()
-          break
       except Queue.Empty:
         pass
       else:
         self.changeImg()
       time.sleep(0.5)
   def changeImg(self):
-    cv2.imshow('frame', swap2cv2(self.img))
+    self.img[:, :, [0, 2]] = self.img[:, :, [2, 0]]
+    cv2.imshow('frame', self.img)
     if (cv2.waitKey(1) & 0xFF) == ord('q'):
       self.running.pop()
 
@@ -41,13 +37,6 @@ running = [True]
 Player = App(PlayerQueue, running)
 Player.start()
 
-
-def swap2cv2(img):
-  img = img.copy()
-  t = img[:, :, 0].copy()
-  img[:, :, 0] = img[:, :, 2].copy()
-  img[:, :, 2] = t.copy()
-  return img
 
 class Mask:
   def __init__(self, img):
@@ -89,7 +78,9 @@ class Mask:
           img[i, j] = np.zeros(3)
     return img
   def showImg(self):
-    cv2.imshow('mask-image', swap2cv2(self.img))
+    a = self.img.copy()
+    a[:, :, [0, 2]] = a[:, :, [2, 0]]
+    cv2.imshow('mask-image', self.img)
     cv2.waitKey(0)
 
 def getNearBy(pos, size=3, limit=(None, None)):
@@ -104,50 +95,44 @@ def getNearBy(pos, size=3, limit=(None, None)):
         y = 2*limit[1] - y - 1
       yield (x, y)        
 
-def inpaint(imgPath, img, mask):
+def inpaint(img, mask):
   while mask.remains() > 0:
     xs, ys = np.where(mask.getBorder() > 0)
     for x, y in zip(xs, ys):
       srcBlock = getblock(img, (x, y))
-      npl.imsave('block.jpg', srcBlock)
+      originPos = (x - srcBlock.shape[0], y - srcBlock.shape[1])
 
-      runNNF('block.jpg', imgPath)
-      ann, annd = getNNF('ann.raw', 'annd.raw')
+      ann, annd = patchmatch(srcBlock, img)
       ann = ann.reshape((srcBlock.shape[0], srcBlock.shape[1], 2))
 
-      img[x, y] = img[ann[ann.shape[0]/2, ann.shape[0]/2, 0], ann[ann.shape[0]/2, ann.shape[0]/2, 1]]
-      PlayerQueue.put(img.copy())
+      target = ann.shape[0]/2, ann.shape[0]/2
+      for i in range(ann.shape[0] - patch_w):
+        for j in range(ann.shape[1] - patch_w):
+          target = ann[i, j]
+          if mask.isMasked((originPos[0] + i, originPos[1] + j)):
+            img[x, y] = img[target[0], target[1]]
+      # img[x, y] = img[ann[ann.shape[0]/2, ann.shape[0]/2, 0], ann[ann.shape[0]/2, ann.shape[0]/2, 1]]
+      # print img.shape
+      PlayerQueue.put(cv2.resize(img.copy(), (img.shape[1]*2, img.shape[0]*2)))
     mask.shrink()
 
 
 def getblock(img, pos, size=25):
-  global baseline
-  # block = np.zeros((size*size, 3))
-  # for index, (x, y) in enumerate(getNearBy(pos, size, limit=img.shape)):
-  #   block[index] = img[x, y]
-  # block = block.reshape((size, size, 3))
-
   block = img[pos[0]-size/2: pos[0]+size/2+1, pos[1]-size/2: pos[1]+size/2+1, 0:3]
-  if baseline == None: 
-    b = convert(block)
-    baseline = c2d(b, b, mode='same').max()
   return block
 
 def convert(block):
   block = block.dot([0.299, 0.587, 0.114])
-  # import matplotlib.cm as cm
-  # npl.imshow(block, cmap=cm.Greys_r)
-  # npl.show()
   block = (block - block.mean())/block.std()
   return block
 
-origin = npl.imread('../image/example.jpg')
-origin2 = cv2.imread('../image/example.jpg')
-mask = Mask(npl.imread('../image/example-mask.jpg'))
+origin = npl.imread('../image/example.jpg')[::2, ::2][::2, ::2]
+mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2][::2, ::2])
+
 # while mask.remains() > 0:
   # mask.shrink()
 # PlayerQueue.put('exit')
 
 vacantImg = mask.mask(origin)
-inpaint('../image/example.jpg', vacantImg, mask)
+inpaint(vacantImg, mask)
 # running.pop()

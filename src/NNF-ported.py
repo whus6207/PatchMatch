@@ -1,17 +1,18 @@
 import numpy as np
 import random
 import time
+import numexpr as ne
 
-INT_MAX = 0xfffffff
-patch_w  = 3
-pm_iters = 7
+INT_MAX = 0xfffff
+patch_w  = 5
+pm_iters = 5
 rs_max   = INT_MAX
 
 def dist(a, b, ax, ay, bx, by, cutoff=INT_MAX):
   ans = 0
   ac = a[ay:ay+patch_w, ax:ax+patch_w]
   bc = b[by:by+patch_w, bx:bx+patch_w]
-  
+ 
   ans = ((1.0*ac - bc)**2).sum()
   if ans >= cutoff:
     return cutoff
@@ -26,17 +27,43 @@ def improve_guess(a, b, ax, ay, xbest, ybest, dbest, bx, by):
     ybest = by
   return xbest, ybest, dbest
 
+def patchmatch_core(a, b, ann, annd, ay, ax, xchange, ychange, aew, bew, aeh, beh):
+  # Current (best) guess.
+  ybest, xbest = ann[ay, ax]
+  dbest = annd[ay, ax]
+  oriPos = ybest, xbest
 
-def showSubplot(a, b, ann, pos, index):
-  da = a[pos[0]: pos[0]+patch_w, pos[1]: pos[1]+patch_w]
-  bpos = ann[pos[0], pos[1]]
-  db = b[bpos[0]: bpos[0]+patch_w, bpos[1]: bpos[1]+patch_w]
-  print index
-  print ((1.*da - db)**2).sum()
+  # Propagation: Improve current guess by trying instead correspondences from left and above (below and right on odd iterations).
+  if (ax - xchange) < aew:
+    yp, xp = ann[ay, ax-xchange]
+    if xp < bew:
+      xbest, ybest, dbest = improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp)
+
+  if (ay - ychange) < aeh:
+    yp, xp = ann[ay-ychange, ax]
+    if yp < beh:
+      xbest, ybest, dbest = improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp)
+
+  #  search: Improve current guess by searching in boxes of exponentially decreasing size around the current best guess.
+  mag = min(rs_max, max(b.shape[1], b.shape[0]))
+  while mag >= 1:
+    # Sampling window
+    xmin = max(xbest-mag, 0)
+    xmax = min(xbest+mag+1, bew)
+    ymin = max(ybest-mag, 0)
+    ymax = min(ybest+mag+1, beh)
+    xp = xmin + random.randint(0, xmax-xmin-1)
+    yp = ymin + random.randint(0, ymax-ymin-1)
+    xbest, ybest, dbest = improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp)          
+    mag >>= 2
+
   
-  npl.subplot(index[0], index[1], index[2]).imshow(da)
-  npl.subplot(index[0], index[1], index[2]+1).imshow(db)
-
+  ann[ay, ax] = [ybest, xbest]
+  annd[ay, ax] = dbest
+  if oriPos != (ybest, xbest):
+    return 1
+  else:
+    return 0
 
 # Match image a to image b, returning the nearest neighbor field mapping a => b coords, stored in an RGB 24-bit image as (by<<12)|bx.
 def patchmatch(a, b):
@@ -58,7 +85,6 @@ def patchmatch(a, b):
       by, bx = ann[ay, ax]
       annd[ay, ax] = dist(a, b, ax, ay, bx, by)
 
-  print 'start iteration'
   for iter in range(pm_iters):
     print 'running iteration: %d/%d'%(iter, pm_iters)
     # In each iteration, improve the NNF, by looping in scanline or reverse-scanline order.
@@ -76,42 +102,10 @@ def patchmatch(a, b):
 
     update = 0
     start_time = time.time()
+
     for ay in range(ystart, yend, ychange):
       for ax in range(xstart, xend, xchange):
-        # Current (best) guess.
-        ybest, xbest = ann[ay, ax]
-        dbest = annd[ay, ax]
-        oriPos = ybest, xbest
-        # Propagation: Improve current guess by trying instead correspondences from left and above (below and right on odd iterations).
-        if (ax - xchange) < aew:
-          yp, xp = ann[ay, ax-xchange]
-          if xp < bew:
-            xbest, ybest, dbest = improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp)
-
-        if (ay - ychange) < aeh:
-          yp, xp = ann[ay-ychange, ax]
-          if yp < beh:
-            xbest, ybest, dbest = improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp)
-
-        # Random search: Improve current guess by searching in boxes of exponentially decreasing size around the current best guess.
-        mag = min(rs_max, max(b.shape[1], b.shape[0]))
-        index = 0
-        while mag >= 1:
-          index += 1
-          # Sampling window
-          xmin = max(xbest-mag, 0)
-          xmax = min(xbest+mag+1, bew)
-          ymin = max(ybest-mag, 0)
-          ymax = min(ybest+mag+1, beh)
-          xp = xmin + random.randint(0, xmax-xmin-1)
-          yp = ymin + random.randint(0, ymax-ymin-1)
-          xbest, ybest, dbest = improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp)          
-          mag /= 2
-
-        if oriPos != (ybest, xbest):
-          update += 1
-        ann[ay, ax] = [ybest, xbest]
-        annd[ay, ax] = dbest
+        patchmatch_core(a, b, ann, annd, ay, ax, xchange, ychange, aew, bew, aeh, beh)
 
     print '%d pixels updated, '%update, 'annd.mean():', annd.mean()
     print 'iteration:', time.time() - start_time, 'seconds'
@@ -121,12 +115,14 @@ def patchmatch(a, b):
 def main():
   import matplotlib.pyplot as npl
   tt = 'block.jpg'
-  tt2 = '../image/example.jpg'
+  # tt2 = '../image/example.jpg'
+  tt2 = tt
 
   img1 = npl.imread(tt)
   img2 = npl.imread(tt2)
   start_time = time.time()
   ann, annd = patchmatch(img1, img2)
+  print ann
   print 'total', time.time() - start_time, 'seconds'
   t = np.zeros_like(img1, dtype=img1.dtype)
   for i in range(ann.shape[0]):

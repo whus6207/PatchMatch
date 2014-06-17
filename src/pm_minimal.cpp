@@ -15,6 +15,7 @@
    - Move to the GPU
   -------------------------------------------------------------------------- */
 
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,11 @@
 #define XY_TO_INT(x, y) (((y)<<12)|(x))
 #define INT_TO_X(v) ((v)&((1<<12)-1))
 #define INT_TO_Y(v) ((v)>>12)
+
+
+
+
+
 /* -------------------------------------------------------------------------
    BITMAP: Minimal image class
    ------------------------------------------------------------------------- */
@@ -40,14 +46,34 @@ class BITMAP { public:
   int *operator[](int y) { return &data[y*w]; }
 };
 
-void check_im() {
-  if (system("identify > null.txt") != 0) {
-    fprintf(stderr, "ImageMagick must be installed, and 'convert' and 'identify' must be in the path\n"); exit(1);
+
+#ifdef EXPORT_DLL
+#define DLLAPI __declspec(dllexport)
+  extern "C" {
+    DLLAPI BITMAP *GetBitMap(int w, int h, int *data){
+      BITMAP *bitmap = new BITMAP(w, h);
+      
+      int *p = bitmap->data;
+      for(int i=0; i<w*h; i++)
+        *p++ = data[i];
+
+      return bitmap;
+    }
+
+    DLLAPI int test(int *&data){
+      data = new int[10];
+      for (int i=0; i<10; i++)
+        data[i] = 100-i;
+      return data[0];
+    }
+
+    DLLAPI int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff);
+
+    DLLAPI void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd);
   }
-}
+#endif
 
 BITMAP *load_bitmap(const char *filename) {
-  // check_im();
   char rawname[256], txtname[256];
   strcpy(rawname, filename);
   strcpy(txtname, filename);
@@ -69,6 +95,7 @@ BITMAP *load_bitmap(const char *filename) {
   f = fopen(rawname, "rb");
   BITMAP *ans = new BITMAP(w, h);
   unsigned char *p = (unsigned char *) ans->data;
+
   for (int i = 0; i < w*h*4; i++) {
     int ch = fgetc(f);
     if (ch == EOF) { fprintf(stderr, "Error reading image '%s': raw file is smaller than expected size %dx%dx4\n", filename, w, h, 4); exit(1); }
@@ -79,7 +106,6 @@ BITMAP *load_bitmap(const char *filename) {
 }
 
 void save_bitmap(BITMAP *bmp, const char *filename) {
-  // check_im();
   char rawname[256];
   strcpy(rawname, filename);
   if (!strstr(rawname, ".")) { fprintf(stderr, "Error writing image '%s': no extension found\n", filename); exit(1); }
@@ -103,12 +129,9 @@ void save_bitmap(BITMAP *bmp, const char *filename) {
 /* -------------------------------------------------------------------------
    PatchMatch, using L2 distance between upright patches that translate only
    ------------------------------------------------------------------------- */
-
 int patch_w  = 7;
 int pm_iters = 10;
 int rs_max   = INT_MAX;
-
-
 
 /* Measure distance between 2 patches with upper left corners (ax, ay) and (bx, by), terminating early if we exceed a cutoff distance.
    You could implement your own descriptor here. */
@@ -139,6 +162,8 @@ void improve_guess(BITMAP *a, BITMAP *b, int ax, int ay, int &xbest, int &ybest,
   }
 }
 
+FILE *f = fopen("C:\\Users\\Dan\\Dropbox\\Dan\\CSIE\\MatchMove\\src\\test", "w");
+
 /* Match image a to image b, returning the nearest neighbor field mapping a => b coords, stored in an RGB 24-bit image as (by<<12)|bx. */
 void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd) {
   /* Initialize with random nearest neighbor field (NNF). */
@@ -156,15 +181,20 @@ void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd) {
       (*annd)[ay][ax] = dist(a, b, ax, ay, bx, by);
     }
   }
+
+  
   for (int iter = 0; iter < pm_iters; iter++) {
     /* In each iteration, improve the NNF, by looping in scanline or reverse-scanline order. */
+    // fprintf(f, "iter: %d/%d\n", iter, pm_iters);
     int ystart = 0, yend = aeh, ychange = 1;
     int xstart = 0, xend = aew, xchange = 1;
     if (iter % 2 == 1) {
       xstart = xend-1; xend = -1; xchange = -1;
       ystart = yend-1; yend = -1; ychange = -1;
     }
-    for (int ay = ystart; ay != yend; ay += ychange) {
+
+    for (int ay = ystart; ay != yend; ay = ay + ychange) {
+      // #pragma omp parallel for
       for (int ax = xstart; ax != xend; ax += xchange) { 
         /* Current (best) guess. */
         int v = (*ann)[ay][ax];
@@ -207,6 +237,7 @@ void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd) {
   }
 }
 
+
 int main(int argc, char *argv[]) {
   argc--;
   argv++;
@@ -216,9 +247,14 @@ int main(int argc, char *argv[]) {
   printf("Loading input images\n");
   BITMAP *a = load_bitmap(argv[0]);
   BITMAP *b = load_bitmap(argv[1]);
+
   BITMAP *ann = NULL, *annd = NULL;
   printf("Running PatchMatch\n");
+
+  clock_t start_time = clock();
   patchmatch(a, b, ann, annd);
+  start_time = clock() - start_time;
+  printf("patchmatch uses %f seconds\n", ((float)start_time)/CLOCKS_PER_SEC);
   printf("Saving output images\n");
   save_bitmap(ann, argv[2]);
   save_bitmap(annd, argv[3]);

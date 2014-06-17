@@ -22,6 +22,11 @@ prog:
 run: ./ANN prog
 	./ANN $(RUN_ARGS)
 
+dllmake: NNF.dll
+
+dll: pm_minimal.cpp
+	g++ -shared -fPIC -o NNF.dll .\pm_minimal.cpp -DEXPORT_DLL -g -O3
+
 clean:
 	$(RM) ANN ANN.exe
 	$(RM) .raw .txt ann.raw annd.raw
