@@ -3,8 +3,27 @@
 #sip.setapi('QVariant', 2)
 
 from PyQt4 import QtCore, QtGui
+import cv2
+import numpy as np
 lineBuf=[]
 rectBuf=[]
+
+
+def np2img(cv_image):
+    height, width, bytesperComponent =cv_image.shape
+    bytesperLine = bytesperComponent* width
+    cv2.cvtColor(cv_image, cv2.cv.CV_BGR2RGB, cv_image)
+    my_image = QtGui.QImage(cv_image.data, width, height, bytesperLine, QtGui.QImage.Format_ARGB32)
+    return my_image
+def img2np(my_image):
+    my_image = my_image.convertToFormat( QtGui.QImage.Format_RGB32)
+    width = my_image.width()
+    height = my_image.height()
+    ptr = my_image.bits()
+    ptr.setsize(my_image.byteCount())
+    arr = np.array(ptr).reshape(height, width,4)#[:, :, :3]
+    return arr
+    
 class MarkPara:
     def __init__ (self,p1,p2):
         self.point1 =p1
@@ -28,27 +47,37 @@ class DrawArea(QtGui.QWidget):
         self.myPenWidth = 1
         self.myPenColor = QtCore.Qt.blue
         imageSize = QtCore.QSize(500, 500)
-        self.image = QtGui.QImage(imageSize, QtGui.QImage.Format_ARGB32)
+        self.cv_image =None
+        self.src_image = QtGui.QImage(imageSize, QtGui.QImage.Format_ARGB32)
         self.op_image = QtGui.QImage(imageSize, QtGui.QImage.Format_ARGB32)
         self.op_image.fill( QtCore.Qt.transparent)
         self.lastPoint = QtCore.QPoint()
 
+    def initOpImage(self):
+        new_size = self.src_image.size()
+        self.op_image =QtGui.QImage(new_size, QtGui.QImage.Format_ARGB32)
+        self.op_image.fill( QtCore.Qt.transparent)
+        
     def openImage(self, fileName):
         loadedImage = QtGui.QImage()
         if not loadedImage.load(fileName):
             return False
-
+        self.cv_image =img2np(loadedImage)
+        cv2.imshow("Show Image with OpencV", self.cv_image)
         w = loadedImage.width()
         h = loadedImage.height()    
         self.mainWindow.resize(w, h)
-
-        self.image = loadedImage
+        
+        #self.src_image = loadedImage
+        self.src_image =np2img(self.cv_image)
+        self.initOpImage()
+        
         self.modified = False
         self.update()
         return True
 
     def saveImage(self, fileName, fileFormat):
-        visibleImage = self.image
+        visibleImage = self.src_image
         self.resizeImage(visibleImage, self.size())
 
         if visibleImage.save(fileName, fileFormat):
@@ -64,7 +93,8 @@ class DrawArea(QtGui.QWidget):
         self.myPenWidth = newWidth
 
     def clearImage(self):
-        self.image.fill(QtGui.qRgb(255, 255, 255))
+        self.src_image.fill(QtGui.qRgb(255, 255, 255))
+        self.op_image.fill(QtGui.qRgb(255, 255, 255))
         self.modified = True
         self.update()
 
@@ -105,7 +135,7 @@ class DrawArea(QtGui.QWidget):
             self.lineFlg = False
         if event.button() == QtCore.Qt.LeftButton and self.scribbling and self.recFlg:
             rectBuf.append( MarkPara(self.lastPoint, event.pos() ) )
-            self.drawRec(event.pos())
+            self.drawRect(event.pos())
             self.scribbling = False
             self.recFlg = False
 
@@ -113,11 +143,12 @@ class DrawArea(QtGui.QWidget):
         
         painter = QtGui.QPainter(self)
         painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceOver)
-        painter.drawImage(event.rect(), self.image)
+        painter.drawImage(event.rect(), self.src_image)
         painter.drawImage(event.rect(), self.op_image,)
 
     def resizeEvent(self, event):
-        self.resizeImage(self.image, event.size())
+        self.resizeImage(self.src_image, event.size())
+        self.resizeImage(self.op_image, event.size())
         super(DrawArea, self).resizeEvent(event)
 
     def drawLineTo(self, endPoint):
@@ -130,11 +161,13 @@ class DrawArea(QtGui.QWidget):
         self.update()
         self.lastPoint = QtCore.QPoint(endPoint)
 
-    def drawRec(self, endPoint):
+    def drawRect(self, endPoint):
         painter = QtGui.QPainter(self.op_image)
         painter.setPen(QtGui.QPen(self.myPenColor, self.myPenWidth,
             QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
-        painter.drawRects(QtCore.QRect(self.lastPoint, endPoint))
+        print( type(self.lastPoint))
+        print( type(endPoint))
+        painter.drawRects( QtCore.QRect( self.lastPoint, endPoint ) )
         self.modified = True
         
         self.update()
@@ -152,7 +185,7 @@ class DrawArea(QtGui.QWidget):
 
 
 
-        self.image = newImage
+        self.src_image = newImage
 
     def print_(self):
         printer = QtGui.QPrinter(QtGui.QPrinter.HighResolution)
@@ -161,11 +194,11 @@ class DrawArea(QtGui.QWidget):
         if printDialog.exec_() == QtGui.QDialog.Accepted:
             painter = QtGui.QPainter(printer)
             rect = painter.viewport()
-            size = self.image.size()
+            size = self.src_image.size()
             size.scale(rect.size(), QtCore.Qt.KeepAspectRatio)
             painter.setViewport(rect.x(), rect.y(), size.width(), size.height())
-            painter.setWindow(self.image.rect())
-            painter.drawImage(0, 0, self.image)
+            painter.setWindow(self.src_image.rect())
+            painter.drawImage(0, 0, self.src_image)
             painter.end()
 
     def isModified(self):
@@ -177,6 +210,14 @@ class DrawArea(QtGui.QWidget):
     def penWidth(self):
         return self.myPenWidth
 
+    ##
+    def myInpaint(self):
+        pass
+    def myRetarget(self):
+        pass
+    def srcUpdate(self,new_src):
+        self.src_image = new_src
+        self.update()
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self):
@@ -192,7 +233,7 @@ class MainWindow(QtGui.QMainWindow):
         self.createActions()
         self.createMenus()
 
-        self.setWindowTitle("Scribble")
+        self.setWindowTitle("VFX Final")
         self.resize(500, 500)
 
     def closeEvent(self, event):
@@ -259,6 +300,11 @@ class MainWindow(QtGui.QMainWindow):
         self.maskAct =  QtGui.QAction("draw Mask",self)
         self.maskAct.triggered.connect(self.scribbleArea.drawMask)
 
+        self.inpaintAct = QtGui.QAction("inpaint",self)
+        self.inpaintAct.triggered.connect(self.scribbleArea.myInpaint)
+        self.retargetAct = QtGui.QAction("retarget",self)
+        self.retargetAct.triggered.connect(self.scribbleArea.myRetarget)
+
 
     def createMenus(self):
         self.saveAsMenu = QtGui.QMenu("&Save As", self)
@@ -283,9 +329,14 @@ class MainWindow(QtGui.QMainWindow):
         markMenu.addAction(self.recAct)
         markMenu.addAction(self.maskAct)
 
+        runMenu = QtGui.QMenu("&Run",self)
+        runMenu.addAction(self.inpaintAct)
+        runMenu.addAction(self.retargetAct)
+
         self.menuBar().addMenu(fileMenu)
         self.menuBar().addMenu(optionMenu)
         self.menuBar().addMenu(markMenu)
+        self.menuBar().addMenu(runMenu)
 
 
     def maybeSave(self):
@@ -317,7 +368,9 @@ class MainWindow(QtGui.QMainWindow):
 if __name__ == '__main__':
 
     import sys
+
     app = QtGui.QApplication(sys.argv)
     window = MainWindow()
     window.show()
+    
     sys.exit(app.exec_())
