@@ -28,8 +28,9 @@ class DrawArea(QtGui.QWidget):
         self.myPenWidth = 1
         self.myPenColor = QtCore.Qt.blue
         imageSize = QtCore.QSize(500, 500)
-        self.image = QtGui.QImage(imageSize, QtGui.QImage.Format_RGB32)
-        self.op_image = QtGui.QImage(imageSize, QtGui.QImage.Format_RGB32)
+        self.image = QtGui.QImage(imageSize, QtGui.QImage.Format_ARGB32)
+        self.op_image = QtGui.QImage(imageSize, QtGui.QImage.Format_ARGB32)
+        self.op_image.fill( QtCore.Qt.transparent)
         self.lastPoint = QtCore.QPoint()
 
     def openImage(self, fileName):
@@ -104,20 +105,23 @@ class DrawArea(QtGui.QWidget):
             self.lineFlg = False
         if event.button() == QtCore.Qt.LeftButton and self.scribbling and self.recFlg:
             rectBuf.append( MarkPara(self.lastPoint, event.pos() ) )
-            self.drawRecTo(event.pos())
+            self.drawRec(event.pos())
             self.scribbling = False
             self.recFlg = False
 
     def paintEvent(self, event):
+        
         painter = QtGui.QPainter(self)
+        painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceOver)
         painter.drawImage(event.rect(), self.image)
+        painter.drawImage(event.rect(), self.op_image,)
 
     def resizeEvent(self, event):
         self.resizeImage(self.image, event.size())
         super(DrawArea, self).resizeEvent(event)
 
     def drawLineTo(self, endPoint):
-        painter = QtGui.QPainter(self.image)
+        painter = QtGui.QPainter(self.op_image)
         painter.setPen(QtGui.QPen(self.myPenColor, self.myPenWidth,
             QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
         painter.drawLine(self.lastPoint, endPoint)
@@ -126,8 +130,8 @@ class DrawArea(QtGui.QWidget):
         self.update()
         self.lastPoint = QtCore.QPoint(endPoint)
 
-    def drawRecTo(self, endPoint):
-        painter = QtGui.QPainter(self.image)
+    def drawRec(self, endPoint):
+        painter = QtGui.QPainter(self.op_image)
         painter.setPen(QtGui.QPen(self.myPenColor, self.myPenWidth,
             QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
         painter.drawRects(QtCore.QRect(self.lastPoint, endPoint))
