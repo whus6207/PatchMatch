@@ -37,7 +37,7 @@ def loadDll(NNFDllPath):
     dll.dist.argtypes = [POINTER(BITMAP), POINTER(BITMAP), c_int, c_int, c_int, c_int]
 
     dll.patchmatch.restype = None
-    dll.patchmatch.argtype = [POINTER(BITMAP), POINTER(BITMAP), POINTER(POINTER(BITMAP)), POINTER(POINTER(BITMAP))]
+    dll.patchmatch.argtype = [POINTER(BITMAP), POINTER(BITMAP), POINTER(POINTER(BITMAP)), POINTER(POINTER(BITMAP)), c_int]
 
     dll.test.restype = c_int
     dll.test.argtype = [POINTER(c_int)]
@@ -55,12 +55,13 @@ def np2Bitmap(arr):
     data = (c_int * len(data))(*data)
     return dll.GetBitMap(arr.shape[1], arr.shape[0], data)
 
-def patchmatch(bitmap1, bitmap2, benchmark=True):
+def patchmatch(bitmap1, bitmap2, rotation=0, benchmark=True):
+    global times
     ann = POINTER(BITMAP)()
     annd = POINTER(BITMAP)()
     if benchmark:
         start = time.time()
-    dll.patchmatch(bitmap1, bitmap2, byref(ann), byref(annd))
+    dll.patchmatch(bitmap1, bitmap2, byref(ann), byref(annd), rotation*90)
     if benchmark:
         print 'cost', time.time() - start, 'seconds'
 
@@ -104,18 +105,22 @@ def main(tt='block.jpg', tt2='../image/example.jpg'):
     print 'data1: ', bitmap1.contents
     print 'data2: ', bitmap2.contents
     print 'check distance function'.center(100, '-')
-    print 'dist (0,0) -> (0, 0): ', dll.dist(bitmap1, bitmap2, 10, 18, 10, 18)
+    print 'dist (10,18) -> (10, 18): ', dll.dist(bitmap1, bitmap2, 10, 18, 10, 18)
     print ('all checked, NNF for file %s, %s'%(tt, tt2)).center(100, '-')
 
-    ann, annd = patchmatch(bitmap1, bitmap2)
-
-    rebuild = np.zeros_like(data1)
-    for i in range(rebuild.shape[0]):
-        for j in range(rebuild.shape[1]):
-            rebuild[i, j] = data2[ann[i,j,0], ann[i,j,1]]
-    npl.subplot(3,1,1).imshow(data1)
-    npl.subplot(3,1,2).imshow(data2)
-    npl.subplot(3,1,3).imshow(rebuild)
+    for rot in range(4):
+        ann, annd = patchmatch(bitmap1, bitmap2, rot)
+        rebuild = np.zeros_like(data1)
+        for i in range(rebuild.shape[0]):
+            for j in range(rebuild.shape[1]):
+                try:
+                    rebuild[i, j] = data2[ann[i,j,0], ann[i,j,1]]
+                except Exception, e:
+                    print ann[i, j]
+        print rot
+        npl.subplot(4,3, rot*3 + 1).imshow(data1)
+        npl.subplot(4,3, rot*3 + 2).imshow(data2)
+        npl.subplot(4,3, rot*3 + 3).imshow(rebuild.copy())
     npl.show()
 
 if __name__ == "__main__":

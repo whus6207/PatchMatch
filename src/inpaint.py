@@ -100,71 +100,58 @@ def inpaint(img, mask):
   for x, y in zip(xs, ys):
     img1[x, y] = [0, 0, 0]
     img2[x, y] = [255, 255, 255]
-  bitmap2 = np2Bitmap(img2)
 
+  bitmap2 = np2Bitmap(img2)
   while mask.remains() > 0:
     print 'remain mask', mask.remains()
     border = mask.getBorder().copy()
     xs, ys = np.where(border > 0)
-    order = zip(xs, ys)
-    d = 0
-    for x, y in order:
-      # If the border not filled yet
-      # if border[x, y] > 0:
+    for x, y in zip(xs, ys):
         srcBlock = getblock(img1, (x, y))
-        # originPos = (x - srcBlock.shape[0], y - srcBlock.shape[1])
-        bitmap1 = np2Bitmap(srcBlock)
+        dstBlock = getblock(img2, (x, y))
 
-        ann, annd = patchmatch(bitmap1, bitmap2, False)
+        diff = (1.*srcBlock - dstBlock)**2
+        valueDiff1 = diff[:diff.shape[0]/2, :diff.shape[1]/2].sum()
+        valueDiff2 = diff[diff.shape[0]/2:diff.shape[0], :diff.shape[1]/2].sum()
+        valueDiff3 = diff[:diff.shape[0]/2, diff.shape[1]/2:diff.shape[1]].sum()
+        valueDiff4 = diff[diff.shape[0]/2:diff.shape[0], diff.shape[1]/2:diff.shape[1]].sum()
+        diff = [valueDiff1, valueDiff2, valueDiff4, valueDiff3]
+
+        rot = diff.index(max(diff))
+        # print diff, diff.index(max(diff))
+        fix = [(0, 0), (-1, 0), (-1, -1), (0, -1)]
+        
+
+        bitmap1 = np2Bitmap(srcBlock)
+        ann, annd = patchmatch(bitmap1, bitmap2, rot, False)
         anncenter = ann[ann.shape[0]/2, ann.shape[1]/2]
 
-        # print annd[ann.shape[0]/2, ann.shape[1]/2], 3*125**2
-        if annd[ann.shape[0]/2, ann.shape[1]/2] < 3.*60**2*ann.shape[0]*ann.shape[1]:
-          d += 1
-          
-          # print (1.*img1[x, y])**2
-          # print a, a**2, sum(a**2), 255**2, sum(a**2) < 255**2
-
-          # print ""
-          img1[x, y] = img2[anncenter[0], anncenter[1]]
-        else:
-          print 'unmask'
-          mask.border[x, y] = 0
-
-        # else:
-        #   mask.border[x, y] = 0
-        # img1[x-1: x+2, y-1:y+2] = img2[anncenter[0]-1:anncenter[0]+2, anncenter[1]-1:anncenter[1]+2]
-        # for i in range(x-1, x+2):
-        #   for j in range(y-1, y+2):
-        #     if border[i, j] != 0:
-        #       border[i, j] = 0
-        #       img1[i, j] = img[anncenter[0] + i - x, anncenter[1] + j - y]
-        # border[x-1: x+2, y-1: y+2] = 0
+        img1[x, y] = img2[anncenter[0]+fix[rot][0], anncenter[1]+fix[rot][1]]
+        if mask.isMasked((anncenter[0]+fix[rot][0], anncenter[1]+fix[rot][1])):
+          mask.border[anncenter[0]+fix[rot][0], anncenter[1]+fix[rot][1]] = 0
 
         # temp = np.zeros((srcBlock.shape[0], srcBlock.shape[1], 3), dtype=img1.dtype)
         # for i in range(ann.shape[0]):
         #   for j in range(ann.shape[1]):
-        #     temp[i, j] = img2[ann[i,j,0], ann[i,j,1]]
+        #     temp[i, j] = img2[ann[i,j,0]+fix[rot][0], ann[i,j,1]+fix[rot][1]]
 
         # print x, y, anncenter, annd[ann.shape[0]/2, ann.shape[1]/2]
         # print dll.dist(bitmap1, bitmap2, x, y,  int(anncenter[0]), int(anncenter[1]))
         # npl.subplot(2,3,1).imshow(temp)
         # npl.subplot(2,3,2).imshow(srcBlock)
-        # npl.subplot(2,3,3).imshow(img2)
+        # npl.subplot(2,3,3).imshow(getblock(img2, (anncenter[0],anncenter[1])))
 
-        # npl.subplot(2,3,4).imshow(getblock(img2, (anncenter[0] - ann.shape[0]/2,anncenter[1]-ann.shape[1]/2), size=25))
-        # npl.subplot(2,3,5).imshow(img1[x:x+7, y:y+7])
-        # npl.subplot(2,3,6).imshow(img2[int(anncenter[0]):int(anncenter[0])+7, int(anncenter[1]):int(anncenter[1])+7])
+        # npl.subplot(2,3,4).imshow(temp[temp.shape[0]/2-7/2: temp.shape[0]/2+7/2, temp.shape[1]/2-7/2: temp.shape[1]/2+7/2])
+
+        # npl.subplot(2,3,5).imshow(img1[x-7:x, y-7:y])
+        # npl.subplot(2,3,6).imshow(img2[int(anncenter[0])-7:int(anncenter[0]), int(anncenter[1])-7:int(anncenter[1])])
 
         # npl.show()
         # exit(1)
       
         PlayerQueue.put(cv2.resize(img1.copy(), (img.shape[1]*3, img.shape[0]*3)))
-    print 'delete mask %d pixels'%d
     mask.shrink()
   return img1
-
-
 
 def getblock(img, pos, size=25, patch_w=7):
   size += patch_w
@@ -178,7 +165,9 @@ def convert(block):
 
 origin = npl.imread('../image/example.jpg')[::2, ::2][::2, ::2]
 mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2][::2, ::2])
-print origin.shape
+
+# origin = npl.imread('../image/example.jpg')[::2, ::2]
+# mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2])
 
 PlayerQueue = Queue.Queue()
 running = [True]

@@ -34,7 +34,6 @@
 int patch_w  = 7;
 int pm_iters = 10;
 int rs_max   = INT_MAX;
-int rotation = 0;
 
 
 /* -------------------------------------------------------------------------
@@ -77,7 +76,7 @@ class BITMAP { public:
 
     int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff);
 
-    void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rotation);
+    void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd);
   }
 // #endif
 
@@ -144,35 +143,13 @@ void save_bitmap(BITMAP *bmp, const char *filename) {
 int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff=INT_MAX) {
   int ans = 0;
 
-  int dxstart, dxend;
-  int dystart, dyend;
-  if (rotation == 0){
-    dxstart = dystart = 0;
-    dxend = dyend = patch_w;
-  }
-  else if(rotation == 90){
-    dxstart = -patch_w;
-    dystart = 0;
-    dxend = 0;
-    dyend = patch_w;
-  }
-  else if(rotation == 180){
-    dxstart = -patch_w;
-    dystart = -patch_w;
-    dxend = 0;
-    dyend = 0;
-  }
-  else if(rotation == 270){
-    dxstart = 0;
-    dystart = -patch_w;
-    dxend = patch_w;
-    dyend = 0;
-  }
-  
-  for (int dy = dystart; dy < dyend; dy++) {
+  int start = -(patch_w/2), end = patch_w/2;
+  if ((ay + start < 0 || by + start < 0) || (ax + start < 0) || (bx + start < 0))
+    printf("start: %d, ay: %d, by: %d, ax: %d, bx: %d\n", start, ay, by, ax, bx);
+  for (int dy = start; dy < end; dy++) {
     int *arow = &(*a)[ay+dy][ax];
     int *brow = &(*b)[by+dy][bx];
-    for (int dx = dxstart; dx < dxend; dx++) {
+    for (int dx = start; dx < end; dx++) {
       int ac = arow[dx];
       int bc = brow[dx];
       int dr = (ac&255)-(bc&255);
@@ -195,78 +172,36 @@ void improve_guess(BITMAP *a, BITMAP *b, int ax, int ay, int &xbest, int &ybest,
 }
 
 /* Match image a to image b, returning the nearest neighbor field mapping a => b coords, stored in an RGB 24-bit image as (by<<12)|bx. */
-void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) {
-  rotation = rot;
+void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd) {
   /* Initialize with random nearest neighbor field (NNF). */
   ann = new BITMAP(a->w, a->h);
   annd = new BITMAP(a->w, a->h);
 
-  int aews, aehs, aewe, aehe;
-  int bews, behs, bewe, behe;
 
-  /* Effective width and height (possible upper left corners of patches). */
-  aews = aehs = bews = behs = 0;
-  aewe = a->w - patch_w;
-  aehe = a->h - patch_w;
-  bewe = b->w - patch_w;
-  behe = b->h - patch_w; 
-  if (rotation == 90){
-    aews = patch_w;
-    aehs = 0;
-    aewe = a->w;
-    aehe = a->h - patch_w;
-
-    bews = patch_w;
-    behs = 0;
-    bewe = b->w;
-    behe = b->h - patch_w;
-  }
-  else if (rotation == 180){
-    aews = patch_w;
-    aehs = patch_w;
-    aewe = a->w;
-    aehe = a->h;
-
-    bews = patch_w;
-    behs = patch_w;
-    bewe = b->w;
-    behe = b->h;
-  }
-  else if (rotation == 270){
-    aews = 0;
-    aehs = patch_w;
-    aewe = a->w - patch_w;
-    aehe = a->h;
-
-    bews = 0;
-    behs = patch_w;
-    bewe = b->w - patch_w;
-    behe = b->h;
-  }
-
+  int aew = a->w - patch_w/2+1, aeh = a->h - patch_w/2+1;       /* Effective width and height (possible upper left corners of patches). */
+  int bew = b->w - patch_w/2+1, beh = b->h - patch_w/2+1;
   memset(ann->data, 0, sizeof(int)*a->w*a->h);
   memset(annd->data, 0, sizeof(int)*a->w*a->h);
-  for (int ay = aehs; ay < aehe; ay++) {
-    for (int ax = aews; ax < aewe; ax++) {
-      int bx = bews + rand()%(bewe-bews);
-      int by = behs + rand()%(behe-behs);
+  for (int ay = patch_w/2; ay < aeh; ay++) {
+    for (int ax = patch_w/2; ax < aew; ax++) {
+      int bx = patch_w/2 +  rand()%bew;
+      int by = patch_w/2 +  rand()%beh;
       (*ann)[ay][ax] = XY_TO_INT(bx, by);
       (*annd)[ay][ax] = dist(a, b, ax, ay, bx, by);
     }
   }
 
-  
   for (int iter = 0; iter < pm_iters; iter++) {
     /* In each iteration, improve the NNF, by looping in scanline or reverse-scanline order. */
-    int ystart = aehs, yend = aehe, ychange = 1;
-    int xstart = aews, xend = aewe, xchange = 1;
+    // fprintf(f, "iter: %d/%d\n", iter, pm_iters);
+    int ystart = patch_w/2, yend = aeh, ychange = 1;
+    int xstart = patch_w/2, xend = aew, xchange = 1;
     if (iter % 2 == 1) {
-      xstart = xend-1; xend = aews-1; xchange = -1;
-      ystart = yend-1; yend = aehs-1; ychange = -1;
+      xstart = xend-1; xend = patch_w/2-1; xchange = -1;
+      ystart = yend-1; yend = patch_w/2-1; ychange = -1;
     }
-
+    
     for (int ay = ystart; ay != yend; ay = ay + ychange) {
-      // #pragma omp parallel for
       for (int ax = xstart; ax != xend; ax += xchange) { 
         /* Current (best) guess. */
         int v = (*ann)[ay][ax];
@@ -274,31 +209,38 @@ void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) 
         int dbest = (*annd)[ay][ax];
 
         /* Propagation: Improve current guess by trying instead correspondences from left and above (below and right on odd iterations). */
-        if ((unsigned) (ax - xchange) < (unsigned) aewe) {
+        if ((unsigned) (ax - xchange) < (unsigned) aew) {
           int vp = (*ann)[ay][ax-xchange];
           int xp = INT_TO_X(vp) + xchange, yp = INT_TO_Y(vp);
-          if ((unsigned) xp < (unsigned) bewe && (unsigned) xp >= (unsigned) bews) {
+          if ((unsigned) xp < (unsigned) bew && (unsigned) xp >= patch_w/2) {
             improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp);
           }
         }
 
-        if ((unsigned) (ay - ychange) < (unsigned) aehe) {
+        if ((unsigned) (ay - ychange) < (unsigned) aeh) {
           int vp = (*ann)[ay-ychange][ax];
           int xp = INT_TO_X(vp), yp = INT_TO_Y(vp) + ychange;
-          if ((unsigned) yp < (unsigned) behe && (unsigned) yp >= (unsigned) behs) {
+          if ((unsigned) yp < (unsigned) beh && (unsigned) yp >= patch_w/2) {
             improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp);
           }
         }
+
+
 
         /* Random search: Improve current guess by searching in boxes of exponentially decreasing size around the current best guess. */
         int rs_start = rs_max;
         if (rs_start > MAX(b->w, b->h)) { rs_start = MAX(b->w, b->h); }
         for (int mag = rs_start; mag >= 1; mag /= 2) {
           /* Sampling window */
-          int xmin = MAX(xbest-mag, bews), xmax = MIN(xbest+mag+1,bewe);
-          int ymin = MAX(ybest-mag, behs), ymax = MIN(ybest+mag+1,behe);
-          int xp = xmin + rand()%(xmax-xmin);
-          int yp = ymin + rand()%(ymax-ymin);
+          int xmin = MAX(xbest-mag, patch_w/2), xmax = MIN(xbest+mag+1,bew);
+          int ymin = MAX(ybest-mag, patch_w/2), ymax = MIN(ybest+mag+1,beh);
+          if (xmax <= xmin)
+            continue;
+          if (ymax <= ymin)
+            continue;
+
+          int xp = xmin+rand()%(xmax-xmin);
+          int yp = ymin+rand()%(ymax-ymin);
           improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp);
         }
 
@@ -306,6 +248,7 @@ void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) 
         (*annd)[ay][ax] = dbest;
       }
     }
+    return;
   }
 }
 
