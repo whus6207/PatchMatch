@@ -45,6 +45,9 @@ def loadDll(NNFDllPath):
     dll.setPatchW.restype = c_int
     dll.setPatchW.argtype = [c_int]
 
+def setPatchW(i):
+    return dll.setPatchW(i)
+
 loadDll(os.getcwd() + "/NNF.dll")
 def np2Bitmap(arr):
     arr = arr.astype('int32')
