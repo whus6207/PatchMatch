@@ -13,8 +13,12 @@ endif
 
 all: ANN
 
-%: pm_minimal.cpp
+%: %.o
 	$(GCC) $< -o $@
+
+%.o: pm_minimal.cpp
+	$(GCC) $< -c
+	mv pm_minimal.o ANN.o
 
 prog: 
 	#..

@@ -107,7 +107,6 @@ def inpaint(img, mask):
     border = mask.getBorder().copy()
     xs, ys = np.where(border > 0)
     order = zip(xs, ys)
-    np.random.shuffle(order)
     d = 0
     for x, y in order:
       # If the border not filled yet
@@ -160,7 +159,7 @@ def inpaint(img, mask):
         # npl.show()
         # exit(1)
       
-        PlayerQueue.put(cv2.resize(img1.copy(), (img.shape[1]*2, img.shape[0]*2)))
+        PlayerQueue.put(cv2.resize(img1.copy(), (img.shape[1]*3, img.shape[0]*3)))
     print 'delete mask %d pixels'%d
     mask.shrink()
   return img1
@@ -189,10 +188,6 @@ Player.start()
 
 start = time.time()
 img = inpaint(origin, mask)
-print 'use', time.time() - start, 'second'
-start = time.time()
-mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2][::2, ::2])
-img = inpaint(img, mask)
 print 'use', time.time() - start, 'second'
 while PlayerQueue.qsize() != 0:
   time.sleep(0)

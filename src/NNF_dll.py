@@ -27,7 +27,8 @@ dll = None
 def loadDll(NNFDllPath):
     global dll
     #load dll and get the function object
-    dll = np.ctypeslib.load_library(NNFDllPath, ".")
+    dll = CDLL(NNFDllPath)
+    # np.ctypeslib.load_library(NNFDllPath, ".")
     dll.GetBitMap.restype = POINTER(BITMAP)
     dll.GetBitMap.argtypes = [c_int, c_int, POINTER(c_int)];
 
@@ -40,7 +41,7 @@ def loadDll(NNFDllPath):
     dll.test.restype = c_int
     dll.test.argtype = [POINTER(c_int)]
 
-loadDll("NNF")
+loadDll("NNF.dll")
 def np2Bitmap(arr):
     arr = arr.astype('int32')
     data = (arr[:, :, 0] | arr[:, :, 1]<<8 | arr[:, :, 2]<<16 ).flatten() | 255 << 24
