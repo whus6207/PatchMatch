@@ -40,18 +40,21 @@ def loadDll(NNFDllPath):
     dll.test.restype = c_int
     dll.test.argtype = [POINTER(c_int)]
 
+loadDll("NNF")
 def np2Bitmap(arr):
     arr = arr.astype('int32')
     data = (arr[:, :, 0] | arr[:, :, 1]<<8 | arr[:, :, 2]<<16 ).flatten() | 255 << 24
     data = (c_int * len(data))(*data)
     return dll.GetBitMap(arr.shape[1], arr.shape[0], data)
 
-def patchmatch(bitmap1, bitmap2):
+def patchmatch(bitmap1, bitmap2, benchmark=True):
     ann = POINTER(BITMAP)()
     annd = POINTER(BITMAP)()
-    start = time.time()
+    if benchmark:
+        start = time.time()
     dll.patchmatch(bitmap1, bitmap2, byref(ann), byref(annd))
-    print 'cost', time.time() - start, 'seconds'
+    if benchmark:
+        print 'cost', time.time() - start, 'seconds'
 
     # convert ann to numpy array
     temp = np.zeros((bitmap1.contents.area(), 2))
@@ -69,7 +72,6 @@ def patchmatch(bitmap1, bitmap2):
 
 
 def main(tt='block.jpg', tt2='../image/example.jpg'):
-    loadDll("NNF")
 
     # test utility
     w = POINTER(c_int)()

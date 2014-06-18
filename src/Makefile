@@ -14,7 +14,7 @@ endif
 all: ANN
 
 %: pm_minimal.cpp
-	$(GCC) -DINT_MAX=100000 $< -o $@
+	$(GCC) $< -o $@
 
 prog: 
 	#..
@@ -25,7 +25,7 @@ run: ./ANN prog
 dllmake: NNF.dll
 
 dll: pm_minimal.cpp
-	g++ -shared -fPIC -o NNF.dll .\pm_minimal.cpp -DEXPORT_DLL -g -O3
+	g++ -shared -fPIC -o NNF.dll pm_minimal.cpp -DEXPORT_DLL -g -O3
 
 clean:
 	$(RM) ANN ANN.exe
