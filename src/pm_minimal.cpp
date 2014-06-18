@@ -167,8 +167,6 @@ void improve_guess(BITMAP *a, BITMAP *b, int ax, int ay, int &xbest, int &ybest,
   }
 }
 
-FILE *f = fopen("C:\\Users\\Dan\\Dropbox\\Dan\\CSIE\\MatchMove\\src\\test", "w");
-
 /* Match image a to image b, returning the nearest neighbor field mapping a => b coords, stored in an RGB 24-bit image as (by<<12)|bx. */
 void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd) {
   /* Initialize with random nearest neighbor field (NNF). */
