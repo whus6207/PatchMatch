@@ -1,7 +1,7 @@
 GCC = g++
 RM = rm -rf
 
-.PHONY: all clean
+.PHONY: all clean dll
 
 ifeq (run,$(firstword $(MAKECMDGOALS)))
   # use the rest as arguments for "run"
@@ -13,23 +13,21 @@ endif
 
 all: ANN
 
-%: %.o
-	$(GCC) $< -o $@
+dll:
+	g++ -shared -fPIC -o NNF.dll pm_minimal.cpp -DEXPORT_DLL -g -O3
 
-%.o: pm_minimal.cpp
-	$(GCC) $< -c
-	mv pm_minimal.o ANN.o
+
+ANN: pm_minimal.cpp
+	$(GCC) $< -o ANN
 
 prog: 
 	#..
 
-run: ./ANN prog
+run: ANN prog
 	./ANN $(RUN_ARGS)
 
 dllmake: NNF.dll
 
-dll: pm_minimal.cpp
-	g++ -shared -fPIC -o NNF.dll pm_minimal.cpp -DEXPORT_DLL -g -O3
 
 clean:
 	$(RM) ANN ANN.exe

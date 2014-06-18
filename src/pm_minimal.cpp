@@ -31,7 +31,9 @@
 #define INT_TO_Y(v) ((v)>>12)
 
 
-
+int patch_w  = 7;
+int pm_iters = 10;
+int rs_max   = INT_MAX;
 
 
 /* -------------------------------------------------------------------------
@@ -47,10 +49,10 @@ class BITMAP { public:
 };
 
 
-#ifdef EXPORT_DLL
-#define DLLAPI __declspec(dllexport)
+// #ifdef EXPORT_DLL
+// #define DLLAPI __declspec(dllexport)
   extern "C" {
-    DLLAPI BITMAP *GetBitMap(int w, int h, int *data){
+    BITMAP *GetBitMap(int w, int h, int *data){
       BITMAP *bitmap = new BITMAP(w, h);
       
       int *p = bitmap->data;
@@ -60,18 +62,23 @@ class BITMAP { public:
       return bitmap;
     }
 
-    DLLAPI int test(int *&data){
+    int test(int *&data){
       data = new int[10];
       for (int i=0; i<10; i++)
         data[i] = 100-i;
       return data[0];
     }
 
-    DLLAPI int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff);
+    int setPatchW(int i){
+      patch_w = i;
+      return patch_w;
+    }
 
-    DLLAPI void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd);
+    int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff);
+
+    void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd);
   }
-#endif
+// #endif
 
 BITMAP *load_bitmap(const char *filename) {
   char rawname[256], txtname[256];
@@ -129,9 +136,7 @@ void save_bitmap(BITMAP *bmp, const char *filename) {
 /* -------------------------------------------------------------------------
    PatchMatch, using L2 distance between upright patches that translate only
    ------------------------------------------------------------------------- */
-int patch_w  = 7;
-int pm_iters = 10;
-int rs_max   = INT_MAX;
+
 
 /* Measure distance between 2 patches with upper left corners (ax, ay) and (bx, by), terminating early if we exceed a cutoff distance.
    You could implement your own descriptor here. */
