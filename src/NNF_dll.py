@@ -1,6 +1,7 @@
 from ctypes import *
 import numpy as np
 import time
+import os
 
 def getGlobalInt(dll, name):
     return c_int.in_dll(dll, name)
@@ -44,7 +45,7 @@ def loadDll(NNFDllPath):
     dll.setPatchW.restype = c_int
     dll.setPatchW.argtype = [c_int]
 
-loadDll("NNF.dll")
+loadDll(os.getcwd() + "/NNF.dll")
 def np2Bitmap(arr):
     arr = arr.astype('int32')
     data = (arr[:, :, 0] | arr[:, :, 1]<<8 | arr[:, :, 2]<<16 ).flatten() | 255 << 24
