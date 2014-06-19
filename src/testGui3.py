@@ -10,6 +10,15 @@ from inpaint import *
 lineBuf=[]
 rectBuf=[]
 
+from multiprocessing import Process
+
+def randomfill(canvas):
+    for i in range(100):
+        print 'run'
+        img = np.random.randint(0, 256, op_image.shape[0]*op_image.shape[1]*3)
+        img = img.reshape((op_image.shape[0],op_image.shape[1], 3))
+        canvas.srcUpdate(img)
+
 
 def np2img(cv_image):
     height, width, bytesperComponent = cv_image.shape
@@ -38,7 +47,6 @@ class MarkPara:
         return point2
     
 class DrawArea(QtGui.QWidget):
-
     def __init__(self, parent=None):
         super(DrawArea, self).__init__(parent)
 
@@ -144,7 +152,7 @@ class DrawArea(QtGui.QWidget):
             self.recFlg = False
 
     def paintEvent(self, event):
-        
+        print 'paintEvent'
         painter = QtGui.QPainter(self)
         painter.setCompositionMode(QtGui.QPainter.CompositionMode_Source)
         painter.drawImage(event.rect(), self.src_image)
@@ -220,18 +228,26 @@ class DrawArea(QtGui.QWidget):
         op_image = img2np(self.op_image).copy()
         self.initOpImage()
         self.update()
-        print "ori", op_image.shape
-        img = inpaint(img2np(self.src_image), op_image, self)
-        self.srcUpdate(img)
+
+
+        
+        p = Process(target=randomfill, args=(self,))
+        p.start()
+        p.join()
+        # print "ori", op_image.shape
+        # img = inpaint(img2np(self.src_image), op_image, self)
+        # self.srcUpdate(img)
         print 'return'
     def myRetarget(self):
         op_image = img2np(self.op_image).copy()
         self.initOpImage()
         pass
     def srcUpdate(self,new_src):
-        # print 'srcUpdate'
-        print new_src.shape
-        new_src = np2img(new_src)
+        print 'srcUpdate'
+        a = np.ones((new_src.shape[0], new_src.shape[1],4))*255
+        a[:, :, :3] = new_src
+        new_src = np2img(a)
+
         self.src_image = new_src
         self.update()
 
