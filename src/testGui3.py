@@ -254,9 +254,22 @@ class DrawArea(QtGui.QWidget):
         print 'return'
     def myRetarget(self):
         op_image = img2np(self.op_image).copy()
-        
         self.initOpImage()
-        pass
+        ok=None
+        height_scale = 1
+        width_scale =1
+        
+        heightDialog = QInputDialog(self)
+        heightDialog.setInputMode(InputMode.IntInput)
+        (height_scale, ok)=heightDialog.getText(this,tr("input Height Scale(1>)"),tr("height Scale"),QLineEdit.Normal)
+
+        widthDialog = QInputDialog(self)
+        widthDialog.setInputMode(InputMode.IntInput)
+        (width_scale, ok)=heightDialog.getText(this,tr("input Width Scale(1>)"),tr("Width Scale"),QLineEdit.Normal)
+        print height_scale
+        print width_scale
+        
+    
     def srcUpdate(self,new_src):
         # pass
     
