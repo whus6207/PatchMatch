@@ -241,10 +241,24 @@ class DrawArea(QtGui.QWidget):
 
         print 'return'
     def myRetarget(self):
+        print "in Retarget"
         op_image = img2np(self.op_image).copy()
-        
         self.initOpImage()
-        pass
+        ok=None
+        height_scale = 1
+        width_scale =1
+        
+        heightDialog = QtGui.QInputDialog(self)
+        heightDialog.setInputMode(1)
+        (height_scale, ok)=heightDialog.getText(self ,"input Height Scale(1>)","height Scale",QtGui.QLineEdit.Normal)
+
+        widthDialog = QtGui.QInputDialog(self)
+        widthDialog.setInputMode(1)
+        (width_scale, ok)=heightDialog.getText(self ,"input Width Scale(1>)","Width Scale",QtGui.QLineEdit.Normal)
+        print height_scale
+        print width_scale
+        
+    
     def srcUpdate(self,new_src):
         # pass
     
@@ -332,6 +346,7 @@ class MainWindow(QtGui.QMainWindow):
         self.maskAct =  QtGui.QAction("draw Mask",self, shortcut="Ctrl+M", triggered=self.scribbleArea.drawMask)
         self.inpaintAct = QtGui.QAction("inpaint",self, shortcut="Ctrl+I", triggered=self.scribbleArea.myInpaint)
         self.retargetAct = QtGui.QAction("retarget",self, shortcut="Ctrol+R", triggered=self.scribbleArea.myRetarget)
+
 
 
     def createMenus(self):
