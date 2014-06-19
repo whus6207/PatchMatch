@@ -44,7 +44,7 @@ class DrawArea(QtGui.QWidget):
         self.lineFlg =False
         self.recFlg = False
         self.maskFlg = False
-        self.myPenWidth = 1
+        self.myPenWidth = 10
         self.myPenColor = QtCore.Qt.blue
         imageSize = QtCore.QSize(500, 500)
         self.cv_image =None
@@ -62,14 +62,15 @@ class DrawArea(QtGui.QWidget):
         loadedImage = QtGui.QImage()
         if not loadedImage.load(fileName):
             return False
-        self.cv_image =img2np(loadedImage)
-        cv2.imshow("Show Image with OpencV", self.cv_image)
+        #self.cv_image =img2np(loadedImage)
+        #cv2.imshow("Show Image with OpencV", self.cv_image)
+        #self.src_image =np2img(self.cv_image)
         w = loadedImage.width()
         h = loadedImage.height()    
         self.mainWindow.resize(w, h)
         
-        #self.src_image = loadedImage
-        self.src_image =np2img(self.cv_image)
+        self.src_image = loadedImage
+        
         self.initOpImage()
         
         self.modified = False
@@ -245,7 +246,7 @@ class MainWindow(QtGui.QMainWindow):
     def open(self):
         if self.maybeSave():
             fileName = QtGui.QFileDialog.getOpenFileName(self, "Open File",
-                QtCore.QDir.currentPath())
+                QtCore.QDir.currentPath()+"\..\image")
             if fileName:
                 self.scribbleArea.openImage(fileName)
 
