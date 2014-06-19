@@ -151,6 +151,7 @@ def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
 
         rot = diff.index(max(diff))
         img1[x, y] = con[rot][x, y]
+        
         # # rot = 0
         # bitmap1 = np2Bitmap(srcBlock)
         # bitmap2 = np2Bitmap(img2)
@@ -185,8 +186,8 @@ def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
         #         img1[k, q] = value
         #         img2[k, q] = value
 
-        # if canvas is not None:
-        #   canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))       
+        if canvas is not None:
+          canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))       
 
         if PlayerQueue:
           PlayerQueue.put(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
