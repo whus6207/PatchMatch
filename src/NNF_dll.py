@@ -26,9 +26,12 @@ class BITMAP(Structure):
 
 dll = None
 dllc = None
-def loadDll(NNFDllPath):
+
+def loadDll():
+    global dll
+    global dllc
     #load dll and get the function object
-    dll = CDLL(NNFDllPath)
+    dll = CDLL(os.getcwd() + "/NNF.dll")
     # np.ctypeslib.load_library(NNFDllPath, ".")
     dll.GetBitMap.restype = POINTER(BITMAP)
     dll.GetBitMap.argtypes = [c_int, c_int, POINTER(c_int)];
@@ -39,18 +42,36 @@ def loadDll(NNFDllPath):
     dll.patchmatch.restype = None
     dll.patchmatch.argtype = [POINTER(BITMAP), POINTER(BITMAP), POINTER(POINTER(BITMAP)), POINTER(POINTER(BITMAP)), c_int]
 
+    dll.maskPatchMatch.restype = None
+    dll.maskPatchMatch.argtype = [POINTER(BITMAP), POINTER(BITMAP), POINTER(POINTER(BITMAP)), POINTER(POINTER(BITMAP)), c_int, POINTER(BITMAP)]
+
     dll.test.restype = c_int
     dll.test.argtype = [POINTER(c_int)]
 
     dll.setPatchW.restype = c_int
     dll.setPatchW.argtype = [c_int]
-    return  dll
+
+    dllc = CDLL(os.getcwd() + "/NNF_center.dll")
+    # np.ctypeslib.load_library(NNFDllPath, ".")
+    dllc.GetBitMap.restype = POINTER(BITMAP)
+    dllc.GetBitMap.argtypes = [c_int, c_int, POINTER(c_int)];
+
+    dllc.dist.restype = c_int
+    dllc.dist.argtypes = [POINTER(BITMAP), POINTER(BITMAP), c_int, c_int, c_int, c_int]
+
+    dllc.patchmatch.restype = None
+    dllc.patchmatch.argtype = [POINTER(BITMAP), POINTER(BITMAP), POINTER(POINTER(BITMAP)), POINTER(POINTER(BITMAP))]
+
+    dllc.test.restype = c_int
+    dllc.test.argtype = [POINTER(c_int)]
+
+    dllc.setPatchW.restype = c_int
+    dllc.setPatchW.argtype = [c_int]
+
+loadDll()
 
 def setPatchW(i):
     return dll.setPatchW(i)
-
-dll = loadDll(os.getcwd() + "/NNF.dll")
-dllc = loadDll(os.getcwd() + "/NNF_center.dll")
 
 
 def np2Bitmap(arr):
@@ -134,26 +155,22 @@ def main(tt='block.jpg', tt2='../image/example.jpg'):
     print ('all checked, NNF for file %s, %s'%(tt, tt2)).center(100, '-')
 
     for rot in range(4):
+        print rot
         ann, annd = patchmatch(bitmap1, bitmap2, rot)
         rebuild = np.zeros_like(data1)
         for i in range(rebuild.shape[0]):
             for j in range(rebuild.shape[1]):
-                try:
-                    rebuild[i, j] = data2[ann[i,j,0], ann[i,j,1]]
-                except Exception, e:
-                    print ann[i, j]
-        print rot
+                rebuild[i, j] = data2[ann[i,j,0], ann[i,j,1]]
+        
         npl.subplot(5,3, rot*3 + 1).imshow(data1)
         npl.subplot(5,3, rot*3 + 2).imshow(data2)
         npl.subplot(5,3, rot*3 + 3).imshow(rebuild.copy())
+
     ann, annd = patchmatchc(bitmap1, bitmap2)
     rebuild = np.zeros_like(data1)
     for i in range(rebuild.shape[0]):
         for j in range(rebuild.shape[1]):
-            try:
-                rebuild[i, j] = data2[ann[i,j,0], ann[i,j,1]]
-            except Exception, e:
-                print ann[i, j]
+            rebuild[i, j] = data2[ann[i,j,0], ann[i,j,1]]
     npl.subplot(5,3,13).imshow(rebuild)
     npl.show()
 

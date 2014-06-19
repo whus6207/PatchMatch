@@ -49,36 +49,33 @@ class BITMAP { public:
 };
 
 
-// #ifdef EXPORT_DLL
-// #define DLLAPI __declspec(dllexport)
-  extern "C" {
-    BITMAP *GetBitMap(int w, int h, int *data){
-      BITMAP *bitmap = new BITMAP(w, h);
-      
-      int *p = bitmap->data;
-      for(int i=0; i<w*h; i++)
-        *p++ = data[i];
+extern "C" {
+  BITMAP *GetBitMap(int w, int h, int *data){
+    BITMAP *bitmap = new BITMAP(w, h);
+    
+    int *p = bitmap->data;
+    for(int i=0; i<w*h; i++)
+      *p++ = data[i];
 
-      return bitmap;
-    }
-
-    int test(int *&data){
-      data = new int[10];
-      for (int i=0; i<10; i++)
-        data[i] = 100-i;
-      return data[0];
-    }
-
-    int setPatchW(int i){
-      patch_w = i;
-      return patch_w;
-    }
-
-    int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff);
-
-    void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot);
+    return bitmap;
   }
-// #endif
+
+  int test(int *&data){
+    data = new int[10];
+    for (int i=0; i<10; i++)
+      data[i] = 100-i;
+    return data[0];
+  }
+
+  int setPatchW(int i){
+    patch_w = i;
+    return patch_w;
+  }
+
+  int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff);
+
+  void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd);
+}
 
 BITMAP *load_bitmap(const char *filename) {
   char rawname[256], txtname[256];
@@ -172,14 +169,14 @@ void improve_guess(BITMAP *a, BITMAP *b, int ax, int ay, int &xbest, int &ybest,
 }
 
 /* Match image a to image b, returning the nearest neighbor field mapping a => b coords, stored in an RGB 24-bit image as (by<<12)|bx. */
-void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) {
+void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd) {
   /* Initialize with random nearest neighbor field (NNF). */
   ann = new BITMAP(a->w, a->h);
   annd = new BITMAP(a->w, a->h);
 
 
-  int aew = a->w - patch_w/2+1, aeh = a->h - patch_w/2+1;       /* Effective width and height (possible upper left corners of patches). */
-  int bew = b->w - patch_w/2+1, beh = b->h - patch_w/2+1;
+  int aew = a->w - patch_w/2, aeh = a->h - patch_w/2;       /* Effective width and height (possible upper left corners of patches). */
+  int bew = b->w - patch_w/2, beh = b->h - patch_w/2;
   memset(ann->data, 0, sizeof(int)*a->w*a->h);
   memset(annd->data, 0, sizeof(int)*a->w*a->h);
   for (int ay = patch_w/2; ay < aeh; ay++) {
