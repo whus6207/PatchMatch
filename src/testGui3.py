@@ -5,6 +5,8 @@
 from PyQt4 import QtCore, QtGui
 import cv2
 import numpy as np
+
+from inpaint import *
 lineBuf=[]
 rectBuf=[]
 
@@ -12,7 +14,7 @@ rectBuf=[]
 def np2img(cv_image):
     height, width, bytesperComponent =cv_image.shape
     bytesperLine = bytesperComponent* width
-    cv2.cvtColor(cv_image, cv2.cv.CV_BGR2RGB, cv_image)
+    # cv2.cvtColor(cv_image, cv2.cv.CV_BGR2RGB, cv_image)
     my_image = QtGui.QImage(cv_image.data, width, height, bytesperLine, QtGui.QImage.Format_ARGB32)
     return my_image
 def img2np(my_image):
@@ -212,7 +214,7 @@ class DrawArea(QtGui.QWidget):
 
     ##
     def myInpaint(self):
-        pass
+        inpaint(img2np(self.src_image), img2np(self.op_image), self)
     def myRetarget(self):
         pass
     def srcUpdate(self,new_src):

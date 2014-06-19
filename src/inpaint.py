@@ -40,8 +40,8 @@ class App(threading.Thread):
 class Mask:
   def __init__(self, img):
     self.img = RGBtoGray(img)
-    self.img[self.img>=126] = 255
-    self.img[self.img<126] = 0
+    self.img[self.img>=10] = 255
+    self.img[self.img<10] = 0
 
   def shrink(self):
     # erase mask with the border
@@ -95,8 +95,12 @@ def getNearBy(pos, size=3, limit=(None, None)):
 
 
 patch_w = 7
-def inpaint(img, mask):
+def inpaint(img, mask, canvas = None):
   global patch_w
+  img = img[:, :, :3][::2, ::2]
+  mask = mask[:, :, :3][::2, ::2]
+  mask = Mask(mask)
+
   img1 = img.copy()
   img2 = img.copy()
   patch_w = setPatchW(patch_w)
@@ -147,6 +151,8 @@ def inpaint(img, mask):
         img1[x, y] = value
         img2[x, y] = value
 
+        if canvas is not None:
+          canvas.srcUpdate(img1.copy())
         # PlayerQueue.put(cv2.resize(img1.copy(), (img.shape[1]*3, img.shape[0]*3)))
     mask.shrink()
   return img1
@@ -168,35 +174,35 @@ def reconstruct(ann, targetImage):
       temp[i, j] = targetImage[ann[i, j, 0], ann[i, j, 1]]
   return temp
 
-origin = npl.imread('../image/example.jpg')[::2, ::2][::2, ::2]
-mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2][::2, ::2])
+# origin = npl.imread('../image/example.jpg')[::2, ::2][::2, ::2]
+# mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2][::2, ::2])
 
 
-src = npl.imread('../image/railroad3.jpg')[::2, ::2]
-target = npl.imread('../image/railroad2.jpg')[::2, ::2]
+# src = npl.imread('../image/railroad3.jpg')[::2, ::2]
+# target = npl.imread('../image/railroad2.jpg')[::2, ::2]
 
-bit1 = np2Bitmap(src)
-bit2 = np2Bitmap(target)
-ann, annd = patchmatch(bit1, bit2)
-npl.subplot(1, 3, 1).imshow(src)
-npl.subplot(1, 3, 2).imshow(target)
-npl.subplot(1, 3, 3).imshow(reconstruct(ann, target))
-npl.show()
-exit(1)
-# origin = npl.imread('../image/example.jpg')[::2, ::2]
-# mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2])
+# bit1 = np2Bitmap(src)
+# bit2 = np2Bitmap(target)
+# ann, annd = patchmatch(bit1, bit2)
+# npl.subplot(1, 3, 1).imshow(src)
+# npl.subplot(1, 3, 2).imshow(target)
+# npl.subplot(1, 3, 3).imshow(reconstruct(ann, target))
+# npl.show()
+# exit(1)
+# # origin = npl.imread('../image/example.jpg')[::2, ::2]
+# # mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2])
 
-# PlayerQueue = Queue.Queue()
-# running = [True]
-# Player = App(PlayerQueue, running)
-# Player.start()
+# # PlayerQueue = Queue.Queue()
+# # running = [True]
+# # Player = App(PlayerQueue, running)
+# # Player.start()
 
 
-start = time.time()
-img = inpaint(origin, mask)
-print 'use', time.time() - start, 'second'
-# while PlayerQueue.qsize() != 0:
-#   time.sleep(0)
-# running.pop()
-npl.subplot(1,1,1).imshow(img)
-npl.show()
+# start = time.time()
+# img = inpaint(origin, mask)
+# print 'use', time.time() - start, 'second'
+# # while PlayerQueue.qsize() != 0:
+# #   time.sleep(0)
+# # running.pop()
+# npl.subplot(1,1,1).imshow(img)
+# npl.show()
