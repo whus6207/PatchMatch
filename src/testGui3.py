@@ -257,6 +257,8 @@ class DrawArea(QtGui.QWidget):
         (width_scale, ok)=heightDialog.getText(self ,"input Width Scale(1>)","Width Scale",QtGui.QLineEdit.Normal)
         print height_scale
         print width_scale
+
+        
         
     
     def srcUpdate(self,new_src):
@@ -265,7 +267,8 @@ class DrawArea(QtGui.QWidget):
         new_src = np2img(new_src)
         print 'srcUpdate'
         self.src_image = new_src
-        self.update()
+        #self.update()
+        self.paintEvent(self.rect())
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self):
