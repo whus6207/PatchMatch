@@ -11,19 +11,19 @@ w_rate=0.95
 h_rate=1
 NNF_dll.setPatchW(patch_size)
 
-a=pl.imread("../image/dog.jpg")[::2, ::2][::2, ::2][::2, ::2]
-#print "a1 shape=", a1.shape
-#a=np.zeros((a1.shape[0]+patch_size-1, a1.shape[1]+patch_size-1, 3), dtype=a1.dtype)
-#a[patch_size/2 : -patch_size/2+1, patch_size/2 : -patch_size/2+1]=a1
+a1=pl.imread("../image/example2.jpg")[::2, ::2][::2, ::2]
+print "a1 shape=", a1.shape
+a=np.zeros((a1.shape[0]+patch_size-1, a1.shape[1]+patch_size-1, 3), dtype=a1.dtype)
+a[patch_size/2 : -patch_size/2+1, patch_size/2 : -patch_size/2+1]=a1
 bitmap1=NNF_dll.np2Bitmap(a)
 
-#b=cv2.resize(a1,  (int(a1.shape[1]*w_rate), int(a1.shape[0]*h_rate)))
-b=cv2.resize(a,  (int(a.shape[1]*w_rate), int(a.shape[0]*h_rate)))
+b1=cv2.resize(a1,  (int(a1.shape[1]*w_rate), int(a1.shape[0]*h_rate)))
+#b=cv2.resize(a,  (int(a.shape[1]*w_rate), int(a.shape[0]*h_rate)))
 #pl.imshow(b1)
 #pl.show()
-#print "b1 shape=", b1.shape
-#b=np.zeros((b1.shape[0]+patch_size-1,b1.shape[1]+patch_size-1,3), dtype=b1.dtype)
-#b[patch_size/2:-patch_size/2+1, patch_size/2:-patch_size/2+1]=b1
+print "b1 shape=", b1.shape
+b=np.zeros((b1.shape[0]+patch_size-1,b1.shape[1]+patch_size-1,3), dtype=b1.dtype)
+b[patch_size/2:-patch_size/2+1, patch_size/2:-patch_size/2+1]=b1
 
 
 print "a shape=", a.shape
@@ -33,8 +33,8 @@ print "b shape=", b.shape
 #pl.show()
 for it in range(num_it):
     bitmap2=NNF_dll.np2Bitmap(b)
-    com_ann, com_annd=NNF_dll.patchmatch(bitmap1,bitmap2)
-    coh_ann, coh_annd=NNF_dll.patchmatch(bitmap2,bitmap1)
+    com_ann, com_annd=NNF_dll.patchmatchc(bitmap1,bitmap2)
+    coh_ann, coh_annd=NNF_dll.patchmatchc(bitmap2,bitmap1)
 
     com_map=[[[] for j in range(b.shape[1])] for i in range(b.shape[0])]
 
@@ -47,8 +47,8 @@ for it in range(num_it):
     Nt=(b.shape[0]-patch_size)*(b.shape[1]-patch_size)*1.0
     m=1#(patch_size)**2
     # calculate value of each pixel
-    for i in range(patch_size/2, b.shape[0]-(patch_size/2)+1):
-        for j in range(patch_size/2, b.shape[1]-(patch_size/2)+1):
+    for i in range(patch_size/2, b.shape[0]-(patch_size/2)):
+        for j in range(patch_size/2, b.shape[1]-(patch_size/2)):
             p_com = np.zeros(3)
             p_coh = np.zeros(3)
             n=0#len(com_map[i][j])

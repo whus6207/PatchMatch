@@ -178,8 +178,8 @@ void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) 
   annd = new BITMAP(a->w, a->h);
 
 
-  int aew = a->w - patch_w/2+1, aeh = a->h - patch_w/2+1;       /* Effective width and height (possible upper left corners of patches). */
-  int bew = b->w - patch_w/2+1, beh = b->h - patch_w/2+1;
+  int aew = a->w - patch_w/2, aeh = a->h - patch_w/2;       /* Effective width and height (possible upper left corners of patches). */
+  int bew = b->w - patch_w/2, beh = b->h - patch_w/2;
   memset(ann->data, 0, sizeof(int)*a->w*a->h);
   memset(annd->data, 0, sizeof(int)*a->w*a->h);
   for (int ay = patch_w/2; ay < aeh; ay++) {
