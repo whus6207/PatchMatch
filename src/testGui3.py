@@ -283,6 +283,7 @@ class MainWindow(QtGui.QMainWindow):
         self.resize(500, 500)
 
     def closeEvent(self, event):
+        print ">>close mainWindow"
         if self.maybeSave():
             event.accept()
         else:
