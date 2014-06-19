@@ -339,17 +339,11 @@ class MainWindow(QtGui.QMainWindow):
         self.clearScreenAct = QtGui.QAction("&Clear Screen", self,
             shortcut="Ctrl+L", triggered=self.scribbleArea.clearImage)
 
-        self.lineAct = QtGui.QAction("draw line",self)
-        self.lineAct.triggered.connect(self.scribbleArea.drawLine)
-        self.recAct =   QtGui.QAction("draw Rec",self)
-        self.recAct.triggered.connect(self.scribbleArea.drawRec)
-        self.maskAct =  QtGui.QAction("draw Mask",self)
-        self.maskAct.triggered.connect(self.scribbleArea.drawMask)
-
-        self.inpaintAct = QtGui.QAction("inpaint",self)
-        self.inpaintAct.triggered.connect(self.scribbleArea.myInpaint)
-        self.retargetAct = QtGui.QAction("retarget",self)
-        self.retargetAct.triggered.connect(self.scribbleArea.myRetarget)
+        self.lineAct = QtGui.QAction("draw line",self,triggered=self.scribbleArea.drawLine)
+        self.recAct  =   QtGui.QAction("draw Rec",self,triggered=self.scribbleArea.drawRec)
+        self.maskAct =  QtGui.QAction("draw Mask",self,triggered=self.scribbleArea.drawMask)
+        self.inpaintAct = QtGui.QAction("inpaint",self,triggered=self.scribbleArea.myInpaint)
+        self.retargetAct = QtGui.QAction("retarget",self,triggered=self.scribbleArea.myInpaint)
 
 
     def createMenus(self):
