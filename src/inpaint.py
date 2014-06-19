@@ -150,7 +150,6 @@ def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
         diff = [valueDiff1, valueDiff3, valueDiff4, valueDiff2]
 
         rot = diff.index(max(diff))
-        img1[x, y] = con[rot][x, y]
         # bitmap1 = np2Bitmap(srcBlock)
         # bitmap2 = np2Bitmap(img2)
         # maskBitmap = np2Bitmap(GraytoRGB(mask.img.astype('uint8')))
