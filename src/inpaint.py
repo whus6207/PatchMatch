@@ -145,38 +145,41 @@ def inpaint(img, mask, canvas = None):
 
         bitmap1 = np2Bitmap(srcBlock)
         bitmap2 = np2Bitmap(img2)
-        
-        # ann, annd = patchmatch(bitmap1, bitmap2, rot, False)
 
-        # for k in range(x, x+2):
-        #   for q in range(y, y+2):
-        #     if mask.isMasked((k,q)):
-        #       annposition = ann[ann.shape[0]/2 + k-x + fix[rot][0], ann.shape[1]/2 + q-y + fix[rot][1]]
-        #       value = img2[annposition[0], annposition[1]]
-        #       # if the target place is not maseked
-        #       if not mask.isMasked(annposition):
-        #         img1[k, q] = value
-        #         img2[k, q] = value
+        ann, annd = patchmatch(bitmap1, bitmap2, rot, False)
 
-        #         mask.img[k, q] = 0
-        #         border[k, q] = 0
-        #       else:
-        #         # find neareast unmasked pixel
-        #         value = []
-        #         for kk in range(4):
-        #           for qq in range(4):
-        #             if not mask.isMasked((annposition[0] + kk-1, annposition[1] + qq-1)):
-        #               value.append(img1[annposition[0] + kk-1, annposition[1] + qq-1])
+        for k in range(x, x+2):
+          for q in range(y, y+2):
+            if mask.isMasked((k,q)):
+              annposition = ann[ann.shape[0]/2 + k-x + fix[rot][0], ann.shape[1]/2 + q-y + fix[rot][1]]
+              value = img2[annposition[0], annposition[1]]
+              # if the target place is not maseked
+              if not mask.isMasked(annposition):
+                img1[k, q] = value
+                img2[k, q] = value
 
-        #         value = reduce(lambda a,b: a+b, value)/len(value) if len(value) != 0 else [0, 0, 0]
-        #         img1[k, q] = value
-        #         img2[k, q] = value
+                mask.img[k, q] = 0
+                border[k, q] = 0
+              else:
+                # find neareast unmasked pixel
+                value = []
+                for kk in range(4):
+                  for qq in range(4):
+                    if not mask.isMasked((annposition[0] + kk-1, annposition[1] + qq-1)):
+                      value.append(img1[annposition[0] + kk-1, annposition[1] + qq-1])
+
+                value = reduce(lambda a,b: a+b, value)/len(value) if len(value) != 0 else [0, 0, 0]
+                img1[k, q] = value
+                img2[k, q] = value
 
         if canvas is not None:
           canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))       
 
         # PlayerQueue.put(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
     mask.shrink()
+
+  # npl.imshow(img1)
+  # npl.show()
   return cv2.resize(img1.copy(), (oriShape[1], oriShape[0]))
 
 def getblock(img, pos, size=11, patch_w=11):

@@ -227,8 +227,6 @@ class DrawArea(QtGui.QWidget):
 
     ##
     def myInpaint(self):
-
-
         op_image = img2np(self.op_image).copy()
         self.initOpImage()
         self.update()
@@ -239,16 +237,6 @@ class DrawArea(QtGui.QWidget):
         #     self.srcUpdate(img)
 
         img = inpaint(img2np(self.src_image), op_image)
-        #widget= QtGui.QWidget()
-        #widget.resize(img.size())
-        #new_window=QtGui.QMainWindow()
-        #new_window.setCentralWedgit(widget)
-        #painter = QtGui.QPainter()
-        #new_window.show()
-        #painter.drawImage(widget.rect(),img)
-        # self.src_image = img
-        # self.update()
-        
         self.srcUpdate(img)
 
         print 'return'
@@ -343,13 +331,10 @@ class MainWindow(QtGui.QMainWindow):
         self.lineAct.triggered.connect(self.scribbleArea.drawLine)
         self.recAct =   QtGui.QAction("draw Rec",self)
         self.recAct.triggered.connect(self.scribbleArea.drawRec)
-        self.maskAct =  QtGui.QAction("draw Mask",self)
-        self.maskAct.triggered.connect(self.scribbleArea.drawMask)
+        self.maskAct =  QtGui.QAction("draw Mask",self, shortcut="Ctrl+M", triggered=self.scribbleArea.drawMask)
 
-        self.inpaintAct = QtGui.QAction("inpaint",self)
-        self.inpaintAct.triggered.connect(self.scribbleArea.myInpaint)
-        self.retargetAct = QtGui.QAction("retarget",self)
-        self.retargetAct.triggered.connect(self.scribbleArea.myRetarget)
+        self.inpaintAct = QtGui.QAction("inpaint",self, shortcut="Ctrl+I", triggered=self.scribbleArea.myInpaint)
+        self.retargetAct = QtGui.QAction("retarget",self, shortcut="Ctrl+R", triggered=self.scribbleArea.myRetarget)
 
 
     def createMenus(self):
