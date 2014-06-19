@@ -76,7 +76,7 @@ class BITMAP { public:
 
     int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff);
 
-    void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd);
+    void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot);
   }
 // #endif
 
@@ -172,7 +172,7 @@ void improve_guess(BITMAP *a, BITMAP *b, int ax, int ay, int &xbest, int &ybest,
 }
 
 /* Match image a to image b, returning the nearest neighbor field mapping a => b coords, stored in an RGB 24-bit image as (by<<12)|bx. */
-void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd) {
+void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) {
   /* Initialize with random nearest neighbor field (NNF). */
   ann = new BITMAP(a->w, a->h);
   annd = new BITMAP(a->w, a->h);

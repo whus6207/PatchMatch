@@ -5,7 +5,7 @@
 from PyQt4 import QtCore, QtGui
 import cv2
 import numpy as np
-
+from qimage2ndarray import *
 from inpaint import *
 lineBuf=[]
 rectBuf=[]
@@ -21,11 +21,12 @@ def randomfill(canvas):
 
 
 def np2img(cv_image):
-    height, width, bytesperComponent = cv_image.shape
-    bytesperLine = bytesperComponent* width
-    #cv2.cvtColor(cv_image, cv2.cv.CV_BGR2RGB, cv_image)
-    my_image = QtGui.QImage(cv_image.data, width, height, bytesperLine, QtGui.QImage.Format_RGB32)
-    #my_image = my_image.convertToFormat( QtGui.QImage.Format_ARGB32)
+    # height, width, bytesperComponent = cv_image.shape
+    # bytesperLine = bytesperComponent* width
+    # cv2.cvtColor(cv_image, cv2.cv.CV_BGR2RGB, cv_image)
+    # my_image = QtGui.QImage(cv_image.data, width, height, bytesperLine, QtGui.QImage.Format_ARGB32)
+    # my_image = my_image.convertToFormat( QtGui.QImage.Format_ARGB32)
+    my_image=numpy2qimage(cv_image)
     return my_image
 def img2np(my_image):
     my_image = my_image.convertToFormat( QtGui.QImage.Format_RGB32)
@@ -76,12 +77,13 @@ class DrawArea(QtGui.QWidget):
             return False
         #self.cv_image =img2np(loadedImage)
         #cv2.imshow("Show Image with OpencV", self.cv_image)
+        #self.src_image =np2img(self.cv_image)
         w = loadedImage.width()
         h = loadedImage.height()    
         self.mainWindow.resize(w, h)
         
         self.src_image = loadedImage
-        #self.src_image =np2img(self.cv_image)
+        
         self.initOpImage()
         
         self.modified = False
@@ -154,7 +156,7 @@ class DrawArea(QtGui.QWidget):
     def paintEvent(self, event):
         print 'paintEvent'
         painter = QtGui.QPainter(self)
-        painter.setCompositionMode(QtGui.QPainter.CompositionMode_Source)
+        painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceOver)
         painter.drawImage(event.rect(), self.src_image)
         painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceOver)
         painter.drawImage(event.rect(), self.op_image,)
@@ -225,29 +227,41 @@ class DrawArea(QtGui.QWidget):
 
     ##
     def myInpaint(self):
+
+
         op_image = img2np(self.op_image).copy()
         self.initOpImage()
         self.update()
 
+        # for i in range(100):
+        #     img = np.random.randint(0, 255, op_image.shape[0]*op_image.shape[1]*3)
+        #     img = img.reshape((op_image.shape[0], op_image.shape[1],3))
+        #     self.srcUpdate(img)
 
+        img = inpaint(img2np(self.src_image), op_image)
+        #widget= QtGui.QWidget()
+        #widget.resize(img.size())
+        #new_window=QtGui.QMainWindow()
+        #new_window.setCentralWedgit(widget)
+        #painter = QtGui.QPainter()
+        #new_window.show()
+        #painter.drawImage(widget.rect(),img)
+        # self.src_image = img
+        # self.update()
         
-        p = Process(target=randomfill, args=(self,))
-        p.start()
-        p.join()
-        # print "ori", op_image.shape
-        # img = inpaint(img2np(self.src_image), op_image, self)
-        # self.srcUpdate(img)
+        self.srcUpdate(img)
+
         print 'return'
     def myRetarget(self):
         op_image = img2np(self.op_image).copy()
+        
         self.initOpImage()
         pass
     def srcUpdate(self,new_src):
+        # pass
+    
+        new_src = np2img(new_src)
         print 'srcUpdate'
-        a = np.ones((new_src.shape[0], new_src.shape[1],4))*255
-        a[:, :, :3] = new_src
-        new_src = np2img(a)
-
         self.src_image = new_src
         self.update()
 

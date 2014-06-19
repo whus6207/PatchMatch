@@ -99,7 +99,7 @@ def getNearBy(pos, size=3, limit=(None, None)):
 
 def inpaint(img, mask, canvas = None):
   oriShape = img.shape
-  print img
+  print img.shape
   setPatchW(7)
   resize = 2
   img = img[:, :, :3]
@@ -145,33 +145,32 @@ def inpaint(img, mask, canvas = None):
 
         bitmap1 = np2Bitmap(srcBlock)
         bitmap2 = np2Bitmap(img2)
-        ann, annd = patchmatch(bitmap1, bitmap2, rot, False)
+        
+        # ann, annd = patchmatch(bitmap1, bitmap2, rot, False)
 
-        color = [[255, 255, 255], [255, 0, 0], [0, 255, 0], [0, 0, 255]]
-        for k in range(x, x+2):
-          for q in range(y, y+2):
-            if mask.isMasked((k,q)):
-              annposition = ann[ann.shape[0]/2 + k-x + fix[rot][0], ann.shape[1]/2 + q-y + fix[rot][1]]
-              value = img2[annposition[0], annposition[1]]
-              # if the target place is not maseked
-              if not mask.isMasked(annposition):
-                img1[k, q] = value
-                img2[k, q] = value
+        # for k in range(x, x+2):
+        #   for q in range(y, y+2):
+        #     if mask.isMasked((k,q)):
+        #       annposition = ann[ann.shape[0]/2 + k-x + fix[rot][0], ann.shape[1]/2 + q-y + fix[rot][1]]
+        #       value = img2[annposition[0], annposition[1]]
+        #       # if the target place is not maseked
+        #       if not mask.isMasked(annposition):
+        #         img1[k, q] = value
+        #         img2[k, q] = value
 
-                mask.img[k, q] = 0
-                border[k, q] = 0
-              else:
-                # find neareast unmasked pixel
-                # print annposition, value, (k, q)
-                value = []
-                for kk in range(4):
-                  for qq in range(4):
-                    if not mask.isMasked((annposition[0] + kk-1, annposition[1] + qq-1)):
-                      value.append(img1[annposition[0] + kk-1, annposition[1] + qq-1])
+        #         mask.img[k, q] = 0
+        #         border[k, q] = 0
+        #       else:
+        #         # find neareast unmasked pixel
+        #         value = []
+        #         for kk in range(4):
+        #           for qq in range(4):
+        #             if not mask.isMasked((annposition[0] + kk-1, annposition[1] + qq-1)):
+        #               value.append(img1[annposition[0] + kk-1, annposition[1] + qq-1])
 
-                value = reduce(lambda a,b: a+b, value)/len(value) if len(value) != 0 else [0, 0, 0]
-                img1[k, q] = value
-                img2[k, q] = value
+        #         value = reduce(lambda a,b: a+b, value)/len(value) if len(value) != 0 else [0, 0, 0]
+        #         img1[k, q] = value
+        #         img2[k, q] = value
 
         if canvas is not None:
           canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))       
@@ -185,11 +184,6 @@ def getblock(img, pos, size=11, patch_w=11):
   block = img[pos[0]-size/2: pos[0]+size/2+1, pos[1]-size/2: pos[1]+size/2+1, 0:3]
   return block
 
-def convert(block):
-  block = block.dot([0.299, 0.587, 0.114])
-  block = (block - block.mean())/block.std()
-  return block
-
 def reconstruct(ann, targetImage):
   temp = np.zeros((ann.shape[0], ann.shape[1], targetImage.shape[2]), dtype=targetImage.dtype)
   for i in range(ann.shape[0]):
@@ -197,20 +191,25 @@ def reconstruct(ann, targetImage):
       temp[i, j] = targetImage[ann[i, j, 0], ann[i, j, 1]]
   return temp
 
-# PlayerQueue = Queue.Queue()
-# running = [True]
-# Player = App(PlayerQueue, running)
-# Player.start()
+def main():
+  # PlayerQueue = Queue.Queue()
+  # running = [True]
+  # Player = App(PlayerQueue, running)
+  # Player.start()
 
-# origin = npl.imread('../image/example.jpg')
-# mask = npl.imread('../image/example-mask.jpg')
+  # origin = npl.imread('../image/example.jpg')
+  # mask = npl.imread('../image/example-mask.jpg')
 
-# start = time.time()
-# img = inpaint(origin, mask)
-# print 'use', time.time() - start, 'second'
+  # start = time.time()
+  # img = inpaint(origin, mask)
+  # print 'use', time.time() - start, 'second'
 
-# # while PlayerQueue.qsize() != 0 and running:
-# #   time.sleep(0)
-# # running.pop()
-# npl.subplot(1,1,1).imshow(img)
-# npl.show()
+  # # while PlayerQueue.qsize() != 0 and running:
+  # #   time.sleep(0)
+  # # running.pop()
+  # npl.subplot(1,1,1).imshow(img)
+  # npl.show()
+  return
+
+if __name__ == "__main__":
+  main()

@@ -172,13 +172,9 @@ int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff=INT_MA
   for (int dy = dystart; dy < dyend; dy++) {
     int *arow = &(*a)[ay+dy][ax];
     int *brow = &(*b)[by+dy][bx];
-    int *maskedRow = &(maskedArea)[by+dy][bx];
     for (int dx = dxstart; dx < dxend; dx++) {
       int ac = arow[dx];
       int bc = brow[dx];
-      int masked = maskedRow[dx];
-      if (masked != 0)
-        return INT_MAX;
       int dr = (ac&255)-(bc&255);
       int dg = ((ac>>8)&255)-((bc>>8)&255);
       int db = (ac>>16)-(bc>>16);
@@ -197,16 +193,9 @@ void improve_guess(BITMAP *a, BITMAP *b, int ax, int ay, int &xbest, int &ybest,
     ybest = by;
   }
 }
-BITMAP maskedArea;
-/* Match image a to image b, returning the nearest neighbor field mapping a => b coords, stored in an RGB 24-bit image as (by<<12)|bx. */
-void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0, BITMAP &mArea=NULL) {
-  if (mArea != NULL) 
-    maskedArea = mArea;
-  else {
-    maskedArea = BITMAP(a->w, a->h)
-    memset(maskedArea.data, 0, sizeof(int)*maskedArea.w*maskedArea.h);
-  }
 
+/* Match image a to image b, returning the nearest neighbor field mapping a => b coords, stored in an RGB 24-bit image as (by<<12)|bx. */
+void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) {
   rotation = rot;
   /* Initialize with random nearest neighbor field (NNF). */
   ann = new BITMAP(a->w, a->h);
