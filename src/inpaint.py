@@ -93,67 +93,65 @@ def getNearBy(pos, size=3, limit=(None, None)):
         y = 2*limit[1] - y - 1
       yield (x, y)        
 
+
+patch_w = 7
 def inpaint(img, mask):
+  global patch_w
   img1 = img.copy()
   img2 = img.copy()
+  patch_w = setPatchW(patch_w)
   xs, ys = np.where(mask.img != 0)
   for x, y in zip(xs, ys):
     img1[x, y] = [0, 0, 0]
     img2[x, y] = [255, 255, 255]
 
-  bitmap2 = np2Bitmap(img2)
+  # bitmap2 = np2Bitmap(img2)
+  # bitmap1 = np2Bitmap(img1)
+  # ann, annd = patchmatch(bitmap1, bitmap2)
+  # temp = np.zeros((ann.shape[0], ann.shape[1], 3), dtype=img1.dtype)
+  # for i in range(ann.shape[0]):
+  #   for j in range(ann.shape[1]):
+  #     temp[i, j] = img2[ann[i,j,0], ann[i,j,1] ]
+  # npl.imshow(temp)
+  # npl.show()
   while mask.remains() > 0:
     print 'remain mask', mask.remains()
     border = mask.getBorder().copy()
     xs, ys = np.where(border > 0)
+
+    # bitmap1 = np2Bitmap(img1)
+    # bitmap2 = np2Bitmap(img2)
+
+    fix = [(0, 0), (0, -1), (-1, -1), (-1, 0)]
     for x, y in zip(xs, ys):
+      if border[x, y] != 0:
         srcBlock = getblock(img1, (x, y))
         dstBlock = getblock(img2, (x, y))
 
         diff = (1.*srcBlock - dstBlock)**2
-        valueDiff1 = diff[:diff.shape[0]/2, :diff.shape[1]/2].sum()
-        valueDiff2 = diff[diff.shape[0]/2:diff.shape[0], :diff.shape[1]/2].sum()
-        valueDiff3 = diff[:diff.shape[0]/2, diff.shape[1]/2:diff.shape[1]].sum()
-        valueDiff4 = diff[diff.shape[0]/2:diff.shape[0], diff.shape[1]/2:diff.shape[1]].sum()
-        diff = [valueDiff1, valueDiff2, valueDiff4, valueDiff3]
+        valueDiff1 = diff[:diff.shape[0]/2, :diff.shape[1]/2].sum() # upperleft
+        valueDiff2 = diff[diff.shape[0]/2:diff.shape[0], :diff.shape[1]/2].sum() #bottomleft
+        valueDiff3 = diff[:diff.shape[0]/2, diff.shape[1]/2:diff.shape[1]].sum() #upperright
+        valueDiff4 = diff[diff.shape[0]/2:diff.shape[0], diff.shape[1]/2:diff.shape[1]].sum() #bottomright
+        diff = [valueDiff1, valueDiff3, valueDiff4, valueDiff2]
 
-        rot = diff.index(max(diff))
-        # print diff, diff.index(max(diff))
-        fix = [(0, 0), (-1, 0), (-1, -1), (0, -1)]
+        rot = diff.index(max(diff))        
         
 
         bitmap1 = np2Bitmap(srcBlock)
+        bitmap2 = np2Bitmap(img2)
         ann, annd = patchmatch(bitmap1, bitmap2, rot, False)
         anncenter = ann[ann.shape[0]/2, ann.shape[1]/2]
+        # value = img2[ann[rot][x, y, 0]+fix[rot][0], ann[rot][x, y, 1] + fix[rot][1]]
+        value = img2[anncenter[0]+fix[rot][0], anncenter[1]+fix[rot][1]]
+        img1[x, y] = value
+        img2[x, y] = value
 
-        img1[x, y] = img2[anncenter[0]+fix[rot][0], anncenter[1]+fix[rot][1]]
-        if mask.isMasked((anncenter[0]+fix[rot][0], anncenter[1]+fix[rot][1])):
-          mask.border[anncenter[0]+fix[rot][0], anncenter[1]+fix[rot][1]] = 0
-
-        # temp = np.zeros((srcBlock.shape[0], srcBlock.shape[1], 3), dtype=img1.dtype)
-        # for i in range(ann.shape[0]):
-        #   for j in range(ann.shape[1]):
-        #     temp[i, j] = img2[ann[i,j,0]+fix[rot][0], ann[i,j,1]+fix[rot][1]]
-
-        # print x, y, anncenter, annd[ann.shape[0]/2, ann.shape[1]/2]
-        # print dll.dist(bitmap1, bitmap2, x, y,  int(anncenter[0]), int(anncenter[1]))
-        # npl.subplot(2,3,1).imshow(temp)
-        # npl.subplot(2,3,2).imshow(srcBlock)
-        # npl.subplot(2,3,3).imshow(getblock(img2, (anncenter[0],anncenter[1])))
-
-        # npl.subplot(2,3,4).imshow(temp[temp.shape[0]/2-7/2: temp.shape[0]/2+7/2, temp.shape[1]/2-7/2: temp.shape[1]/2+7/2])
-
-        # npl.subplot(2,3,5).imshow(img1[x-7:x, y-7:y])
-        # npl.subplot(2,3,6).imshow(img2[int(anncenter[0])-7:int(anncenter[0]), int(anncenter[1])-7:int(anncenter[1])])
-
-        # npl.show()
-        # exit(1)
-      
-        PlayerQueue.put(cv2.resize(img1.copy(), (img.shape[1]*3, img.shape[0]*3)))
+        # PlayerQueue.put(cv2.resize(img1.copy(), (img.shape[1]*3, img.shape[0]*3)))
     mask.shrink()
   return img1
 
-def getblock(img, pos, size=25, patch_w=7):
+def getblock(img, pos, size=25, patch_w=14):
   size += patch_w
   block = img[pos[0]-size/2: pos[0]+size/2+1, pos[1]-size/2: pos[1]+size/2+1, 0:3]
   return block
@@ -163,23 +161,42 @@ def convert(block):
   block = (block - block.mean())/block.std()
   return block
 
+def reconstruct(ann, targetImage):
+  temp = np.zeros((ann.shape[0], ann.shape[1], targetImage.shape[2]), dtype=targetImage.dtype)
+  for i in range(ann.shape[0]):
+    for j in range(ann.shape[1]):
+      temp[i, j] = targetImage[ann[i, j, 0], ann[i, j, 1]]
+  return temp
+
 origin = npl.imread('../image/example.jpg')[::2, ::2][::2, ::2]
 mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2][::2, ::2])
 
+
+src = npl.imread('../image/railroad3.jpg')[::2, ::2]
+target = npl.imread('../image/railroad2.jpg')[::2, ::2]
+
+bit1 = np2Bitmap(src)
+bit2 = np2Bitmap(target)
+ann, annd = patchmatch(bit1, bit2)
+npl.subplot(1, 3, 1).imshow(src)
+npl.subplot(1, 3, 2).imshow(target)
+npl.subplot(1, 3, 3).imshow(reconstruct(ann, target))
+npl.show()
+exit(1)
 # origin = npl.imread('../image/example.jpg')[::2, ::2]
 # mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2])
 
-PlayerQueue = Queue.Queue()
-running = [True]
-Player = App(PlayerQueue, running)
-Player.start()
+# PlayerQueue = Queue.Queue()
+# running = [True]
+# Player = App(PlayerQueue, running)
+# Player.start()
 
 
 start = time.time()
 img = inpaint(origin, mask)
 print 'use', time.time() - start, 'second'
-while PlayerQueue.qsize() != 0:
-  time.sleep(0)
-running.pop()
+# while PlayerQueue.qsize() != 0:
+#   time.sleep(0)
+# running.pop()
 npl.subplot(1,1,1).imshow(img)
 npl.show()
