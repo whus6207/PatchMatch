@@ -5,27 +5,29 @@
 from PyQt4 import QtCore, QtGui
 import cv2
 import numpy as np
-
+from qimage2ndarray import *
 from inpaint import *
 lineBuf=[]
 rectBuf=[]
 
 
 def np2img(cv_image):
-    height, width, bytesperComponent = cv_image.shape
-    bytesperLine = bytesperComponent* width
+    #height, width, bytesperComponent = cv_image.shape
+    #bytesperLine = bytesperComponent* width
     #cv2.cvtColor(cv_image, cv2.cv.CV_BGR2RGB, cv_image)
-    my_image = QtGui.QImage(cv_image.data, width, height, bytesperLine, QtGui.QImage.Format_RGB32)
+    #my_image = QtGui.QImage(cv_image.data, width, height, bytesperLine, QtGui.QImage.Format_RGB32)
     #my_image = my_image.convertToFormat( QtGui.QImage.Format_ARGB32)
+    my_image=numpy2qimage(cv_image)
     return my_image
 def img2np(my_image):
-    my_image = my_image.convertToFormat( QtGui.QImage.Format_RGB32)
-    width = my_image.width()
-    height = my_image.height()
-    ptr = my_image.bits()
-    ptr.setsize(my_image.byteCount())
-    arr = np.array(ptr).reshape(height, width,4)#[:, :, :3]
-    arr[:, :, [0, 2]] = arr[:, :, [2, 0]]
+    #my_image = my_image.convertToFormat( QtGui.QImage.Format_RGB32)
+    #width = my_image.width()
+    #height = my_image.height()
+    #ptr = my_image.bits()
+    #ptr.setsize(my_image.byteCount())
+    #arr = np.array(ptr).reshape(height, width,4)#[:, :, :3]
+    #arr[:, :, [0, 2]] = arr[:, :, [2, 0]]
+    arr=qimage2numpy(my_image)
     return arr
     
 class MarkPara:
@@ -68,12 +70,13 @@ class DrawArea(QtGui.QWidget):
             return False
         #self.cv_image =img2np(loadedImage)
         #cv2.imshow("Show Image with OpencV", self.cv_image)
+        #self.src_image =np2img(self.cv_image)
         w = loadedImage.width()
         h = loadedImage.height()    
         self.mainWindow.resize(w, h)
         
         self.src_image = loadedImage
-        #self.src_image =np2img(self.cv_image)
+        
         self.initOpImage()
         
         self.modified = False
@@ -144,9 +147,9 @@ class DrawArea(QtGui.QWidget):
             self.recFlg = False
 
     def paintEvent(self, event):
-        
+        print "paintevent"
         painter = QtGui.QPainter(self)
-        painter.setCompositionMode(QtGui.QPainter.CompositionMode_Source)
+        painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceOver)
         painter.drawImage(event.rect(), self.src_image)
         painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceOver)
         painter.drawImage(event.rect(), self.op_image,)
@@ -222,18 +225,32 @@ class DrawArea(QtGui.QWidget):
         self.update()
         print "ori", op_image.shape
         img = inpaint(img2np(self.src_image), op_image, self)
+        img = numpy2qimage(img)
+        #widget= QtGui.QWidget()
+        #widget.resize(img.size())
+        #new_window=QtGui.QMainWindow()
+        #new_window.setCentralWedgit(widget)
+        #painter = QtGui.QPainter()
+        #new_window.show()
+        #painter.drawImage(widget.rect(),img)
+        self.src_image = img
+        self.update()
+        
         self.srcUpdate(img)
         print 'return'
     def myRetarget(self):
         op_image = img2np(self.op_image).copy()
+        
         self.initOpImage()
         pass
     def srcUpdate(self,new_src):
+        pass
+    
         # print 'srcUpdate'
-        print new_src.shape
-        new_src = np2img(new_src)
-        self.src_image = new_src
-        self.update()
+        #print new_src.shape
+        #self.src_image = new_src
+        #self.update()
+        
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self):
