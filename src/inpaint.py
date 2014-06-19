@@ -40,12 +40,14 @@ class App(threading.Thread):
 class Mask:
   def __init__(self, img):
     self.img = RGBtoGray(img)
+    self.img = self.img.astype('float32')
     self.img[self.img>=10] = 255
     self.img[self.img<10] = 0
 
   def shrink(self):
     # erase mask with the border
     self.img -= self.border
+    self.img[self.img < 0] = 0
 
   def remains(self):
     n = (self.img > 0).sum()
@@ -93,10 +95,18 @@ def getNearBy(pos, size=3, limit=(None, None)):
         y = 2*limit[1] - y - 1
       yield (x, y)        
 
+
+
 def inpaint(img, mask, canvas = None):
   oriShape = img.shape
-  img = img[:, :, :3][::2, ::2][::2, ::2]
-  mask = mask[:, :, :3][::2, ::2][::2, ::2]
+  print img.shape
+  setPatchW(7)
+  resize = 2
+  img = img[:, :, :3]
+  mask = mask[:, :, :3]
+
+  img = cv2.resize(img, (int(img.shape[1]/resize), int(img.shape[0]/resize)))
+  mask = cv2.resize(mask, (int(mask.shape[1]/resize), int(mask.shape[0]/resize)))
   mask = Mask(mask)
 
   img1 = img.copy()
@@ -105,62 +115,73 @@ def inpaint(img, mask, canvas = None):
   for x, y in zip(xs, ys):
     img1[x, y] = [0, 0, 0]
     img2[x, y] = [255, 255, 255]
-  # bitmap2 = np2Bitmap(img2)
-  # bitmap1 = np2Bitmap(img1)
-  # ann, annd = patchmatch(bitmap1, bitmap2)
-  # temp = np.zeros((ann.shape[0], ann.shape[1], 3), dtype=img1.dtype)
-  # for i in range(ann.shape[0]):
-  #   for j in range(ann.shape[1]):
-  #     temp[i, j] = img2[ann[i,j,0], ann[i,j,1] ]
-  # npl.imshow(temp)
-  # npl.show()
   while mask.remains() > 0:
     print 'remain mask', mask.remains()
     border = mask.getBorder().copy()
     xs, ys = np.where(border > 0)
 
-    # bitmap1 = np2Bitmap(img1)
-    # bitmap2 = np2Bitmap(img2)
-
     fix = [(0, 0), (0, -1), (-1, -1), (-1, 0)]
-    for x, y in zip(xs, ys):
+    order = zip(xs, ys)
+    np.random.shuffle(order)
+    for x, y in order:
       if border[x, y] != 0:
         srcBlock = getblock(img1, (x, y))
         dstBlock = getblock(img2, (x, y))
 
         diff = (1.*srcBlock - dstBlock)**2
-        valueDiff1 = diff[:diff.shape[0]/2, :diff.shape[1]/2].sum() # upperleft
-        valueDiff2 = diff[diff.shape[0]/2:diff.shape[0], :diff.shape[1]/2].sum() #bottomleft
-        valueDiff3 = diff[:diff.shape[0]/2, diff.shape[1]/2:diff.shape[1]].sum() #upperright
-        valueDiff4 = diff[diff.shape[0]/2:diff.shape[0], diff.shape[1]/2:diff.shape[1]].sum() #bottomright
+
+        valueDiff1 = diff[:diff.shape[0]/2, :diff.shape[1]/2] # upperleft
+        valueDiff2 = diff[diff.shape[0]/2:diff.shape[0], :diff.shape[1]/2] #bottomleft
+        valueDiff3 = diff[:diff.shape[0]/2, diff.shape[1]/2:diff.shape[1]] #upperright
+        valueDiff4 = diff[diff.shape[0]/2:diff.shape[0], diff.shape[1]/2:diff.shape[1]] #bottomright
+
+        valueDiff1 = valueDiff1.mean()
+        valueDiff2 = valueDiff2.mean()
+        valueDiff3 = valueDiff3.mean()
+        valueDiff4 = valueDiff4.mean()
         diff = [valueDiff1, valueDiff3, valueDiff4, valueDiff2]
 
-        rot = diff.index(max(diff))        
-        
+        rot = diff.index(max(diff))
 
         bitmap1 = np2Bitmap(srcBlock)
         bitmap2 = np2Bitmap(img2)
+        
         # ann, annd = patchmatch(bitmap1, bitmap2, rot, False)
-        # anncenter = ann[ann.shape[0]/2, ann.shape[1]/2]
-        # value = img2[ann[rot][x, y, 0]+fix[rot][0], ann[rot][x, y, 1] + fix[rot][1]]
-        # value = img2[anncenter[0]+fix[rot][0], anncenter[1]+fix[rot][1]]
-        # img1[x, y] = value
-        # img2[x, y] = value
+
+        # for k in range(x, x+2):
+        #   for q in range(y, y+2):
+        #     if mask.isMasked((k,q)):
+        #       annposition = ann[ann.shape[0]/2 + k-x + fix[rot][0], ann.shape[1]/2 + q-y + fix[rot][1]]
+        #       value = img2[annposition[0], annposition[1]]
+        #       # if the target place is not maseked
+        #       if not mask.isMasked(annposition):
+        #         img1[k, q] = value
+        #         img2[k, q] = value
+
+        #         mask.img[k, q] = 0
+        #         border[k, q] = 0
+        #       else:
+        #         # find neareast unmasked pixel
+        #         value = []
+        #         for kk in range(4):
+        #           for qq in range(4):
+        #             if not mask.isMasked((annposition[0] + kk-1, annposition[1] + qq-1)):
+        #               value.append(img1[annposition[0] + kk-1, annposition[1] + qq-1])
+
+        #         value = reduce(lambda a,b: a+b, value)/len(value) if len(value) != 0 else [0, 0, 0]
+        #         img1[k, q] = value
+        #         img2[k, q] = value
 
         if canvas is not None:
           canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))       
-          # PlayerQueue.put(cv2.resize(img1.copy(), (img.shape[1]*3, img.shape[0]*3)))
+
+        # PlayerQueue.put(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
     mask.shrink()
   return cv2.resize(img1.copy(), (oriShape[1], oriShape[0]))
 
-def getblock(img, pos, size=25, patch_w=14):
+def getblock(img, pos, size=11, patch_w=11):
   size += patch_w
   block = img[pos[0]-size/2: pos[0]+size/2+1, pos[1]-size/2: pos[1]+size/2+1, 0:3]
-  return block
-
-def convert(block):
-  block = block.dot([0.299, 0.587, 0.114])
-  block = (block - block.mean())/block.std()
   return block
 
 def reconstruct(ann, targetImage):
@@ -170,35 +191,25 @@ def reconstruct(ann, targetImage):
       temp[i, j] = targetImage[ann[i, j, 0], ann[i, j, 1]]
   return temp
 
-# origin = npl.imread('../image/example.jpg')[::2, ::2][::2, ::2]
-# mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2][::2, ::2])
+def main():
+  # PlayerQueue = Queue.Queue()
+  # running = [True]
+  # Player = App(PlayerQueue, running)
+  # Player.start()
 
+  # origin = npl.imread('../image/example.jpg')
+  # mask = npl.imread('../image/example-mask.jpg')
 
-# src = npl.imread('../image/railroad3.jpg')[::2, ::2]
-# target = npl.imread('../image/railroad2.jpg')[::2, ::2]
+  # start = time.time()
+  # img = inpaint(origin, mask)
+  # print 'use', time.time() - start, 'second'
 
-# bit1 = np2Bitmap(src)
-# bit2 = np2Bitmap(target)
-# ann, annd = patchmatch(bit1, bit2)
-# npl.subplot(1, 3, 1).imshow(src)
-# npl.subplot(1, 3, 2).imshow(target)
-# npl.subplot(1, 3, 3).imshow(reconstruct(ann, target))
-# npl.show()
-# exit(1)
-# # origin = npl.imread('../image/example.jpg')[::2, ::2]
-# # mask = Mask(npl.imread('../image/example-mask.jpg')[::2, ::2])
+  # # while PlayerQueue.qsize() != 0 and running:
+  # #   time.sleep(0)
+  # # running.pop()
+  # npl.subplot(1,1,1).imshow(img)
+  # npl.show()
+  return
 
-# # PlayerQueue = Queue.Queue()
-# # running = [True]
-# # Player = App(PlayerQueue, running)
-# # Player.start()
-
-
-# start = time.time()
-# img = inpaint(origin, mask)
-# print 'use', time.time() - start, 'second'
-# # while PlayerQueue.qsize() != 0:
-# #   time.sleep(0)
-# # running.pop()
-# npl.subplot(1,1,1).imshow(img)
-# npl.show()
+if __name__ == "__main__":
+  main()

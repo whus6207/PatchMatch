@@ -14,7 +14,8 @@ endif
 all: ANN
 
 dll:
-	g++ -shared -fPIC -o NNF.dll pm_minimal_center.cpp -DEXPORT_DLL -g -O3
+	g++ -shared -fPIC -o NNF.dll pm_minimal.cpp -DEXPORT_DLL -g -O3
+	g++ -shared -fPIC -o NNF_center.dll pm_minimal_center.cpp -DEXPORT_DLL -g -O3
 
 
 ANN: pm_minimal.cpp
@@ -25,8 +26,6 @@ prog:
 
 run: ANN prog
 	./ANN $(RUN_ARGS)
-
-dllmake: NNF.dll
 
 
 clean:

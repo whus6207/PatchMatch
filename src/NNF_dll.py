@@ -25,8 +25,8 @@ class BITMAP(Structure):
 
 
 dll = None
+dllc = None
 def loadDll(NNFDllPath):
-    global dll
     #load dll and get the function object
     dll = CDLL(NNFDllPath)
     # np.ctypeslib.load_library(NNFDllPath, ".")
@@ -44,11 +44,15 @@ def loadDll(NNFDllPath):
 
     dll.setPatchW.restype = c_int
     dll.setPatchW.argtype = [c_int]
+    return  dll
 
 def setPatchW(i):
     return dll.setPatchW(i)
 
-loadDll(os.getcwd() + "/NNF.dll")
+dll = loadDll(os.getcwd() + "/NNF.dll")
+dllc = loadDll(os.getcwd() + "/NNF_center.dll")
+
+
 def np2Bitmap(arr):
     arr = arr.astype('int32')
     data = (arr[:, :, 0] | arr[:, :, 1]<<8 | arr[:, :, 2]<<16 ).flatten() | 255 << 24
@@ -76,12 +80,33 @@ def patchmatch(bitmap1, bitmap2, rotation=0, benchmark=True):
     for i in range(bitmap1.contents.w*bitmap1.contents.h):
         temp[i] = annd.contents.data[i]
     annd = temp.reshape((bitmap1.contents.h, bitmap1.contents.w))
-
     return ann, annd
+
+def patchmatchc(bitmap1, bitmap2, benchmark=True):
+    global times
+    ann = POINTER(BITMAP)()
+    annd = POINTER(BITMAP)()
+    if benchmark:
+        start = time.time()
+    dllc.patchmatch(bitmap1, bitmap2, byref(ann), byref(annd), 0)
+    if benchmark:
+        print 'cost', time.time() - start, 'seconds'
+
+    # convert ann to numpy array
+    temp = np.zeros((bitmap1.contents.area(), 2))
+    for i in range(bitmap1.contents.w*bitmap1.contents.h):
+        temp[i] = [ann.contents.data[i]>>12, ann.contents.data[i]&0xfff]
+    ann = temp.reshape((bitmap1.contents.h, bitmap1.contents.w, 2))
+
+    # convert annd to numpy array
+    temp = np.zeros(bitmap1.contents.area())
+    for i in range(bitmap1.contents.w*bitmap1.contents.h):
+        temp[i] = annd.contents.data[i]
+    annd = temp.reshape((bitmap1.contents.h, bitmap1.contents.w))
+    return ann, annd    
 
 
 def main(tt='block.jpg', tt2='../image/example.jpg'):
-
     # test utility
     w = POINTER(c_int)()
     dll.test(byref(w))
@@ -118,9 +143,18 @@ def main(tt='block.jpg', tt2='../image/example.jpg'):
                 except Exception, e:
                     print ann[i, j]
         print rot
-        npl.subplot(4,3, rot*3 + 1).imshow(data1)
-        npl.subplot(4,3, rot*3 + 2).imshow(data2)
-        npl.subplot(4,3, rot*3 + 3).imshow(rebuild.copy())
+        npl.subplot(5,3, rot*3 + 1).imshow(data1)
+        npl.subplot(5,3, rot*3 + 2).imshow(data2)
+        npl.subplot(5,3, rot*3 + 3).imshow(rebuild.copy())
+    ann, annd = patchmatchc(bitmap1, bitmap2)
+    rebuild = np.zeros_like(data1)
+    for i in range(rebuild.shape[0]):
+        for j in range(rebuild.shape[1]):
+            try:
+                rebuild[i, j] = data2[ann[i,j,0], ann[i,j,1]]
+            except Exception, e:
+                print ann[i, j]
+    npl.subplot(5,3,13).imshow(rebuild)
     npl.show()
 
 if __name__ == "__main__":
