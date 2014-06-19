@@ -239,33 +239,25 @@ class DrawArea(QtGui.QWidget):
         #     self.srcUpdate(img)
 
         img = inpaint(img2np(self.src_image), op_image)
-        #widget= QtGui.QWidget()
-        #widget.resize(img.size())
-        #new_window=QtGui.QMainWindow()
-        #new_window.setCentralWedgit(widget)
-        #painter = QtGui.QPainter()
-        #new_window.show()
-        #painter.drawImage(widget.rect(),img)
-        # self.src_image = img
-        # self.update()
         
         self.srcUpdate(img)
 
         print 'return'
     def myRetarget(self):
+        print "in Retarget"
         op_image = img2np(self.op_image).copy()
         self.initOpImage()
         ok=None
         height_scale = 1
         width_scale =1
         
-        heightDialog = QInputDialog(self)
-        heightDialog.setInputMode(InputMode.IntInput)
-        (height_scale, ok)=heightDialog.getText(this,tr("input Height Scale(1>)"),tr("height Scale"),QLineEdit.Normal)
+        heightDialog = QtGui.QInputDialog(self)
+        heightDialog.setInputMode(1)
+        (height_scale, ok)=heightDialog.getText(self ,"input Height Scale(1>)","height Scale",QtGui.QLineEdit.Normal)
 
-        widthDialog = QInputDialog(self)
-        widthDialog.setInputMode(InputMode.IntInput)
-        (width_scale, ok)=heightDialog.getText(this,tr("input Width Scale(1>)"),tr("Width Scale"),QLineEdit.Normal)
+        widthDialog = QtGui.QInputDialog(self)
+        widthDialog.setInputMode(1)
+        (width_scale, ok)=heightDialog.getText(self ,"input Width Scale(1>)","Width Scale",QtGui.QLineEdit.Normal)
         print height_scale
         print width_scale
         
@@ -356,7 +348,7 @@ class MainWindow(QtGui.QMainWindow):
         self.recAct  =   QtGui.QAction("draw Rec",self,triggered=self.scribbleArea.drawRec)
         self.maskAct =  QtGui.QAction("draw Mask",self,triggered=self.scribbleArea.drawMask)
         self.inpaintAct = QtGui.QAction("inpaint",self,triggered=self.scribbleArea.myInpaint)
-        self.retargetAct = QtGui.QAction("retarget",self,triggered=self.scribbleArea.myInpaint)
+        self.retargetAct = QtGui.QAction("retarget",self,triggered=self.scribbleArea.myRetarget)
 
 
     def createMenus(self):
