@@ -262,10 +262,13 @@ class DrawArea(QtGui.QWidget):
         widthDialog = QtGui.QInputDialog(self)
         widthDialog.setInputMode(1)
         (width_scale, ok)=heightDialog.getText(self ,"input Width Scale(1>)","Width Scale",QtGui.QLineEdit.Normal)
+        ok = bool()
+        (hscale_fl,ok) = height_scale.toFloat()
+        (wscale_fl ,ok)= width_scale.toFloat()
         print height_scale
         print width_scale
         
-        new_img = retarget(img2np(self.src_image),width_scale,height_scale )
+        new_img = retarget(img2np(self.src_image),wscale_fl, hscale_fl)
 
         
         

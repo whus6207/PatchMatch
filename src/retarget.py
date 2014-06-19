@@ -2,7 +2,7 @@ import NNF_dll
 import numpy as np
 import cv2
 import matplotlib.pyplot as pl
-import scipy.ndimage
+import scipy.ndimage as sci
 import math
 
 def retarget(a, w_ratio, h_ratio):
@@ -12,7 +12,7 @@ def retarget(a, w_ratio, h_ratio):
     #w_rate=0.95
     #h_rate=1
     NNF_dll.setPatchW(patch_size)
-
+    a=a[::2,::2,:3]
     #a=pl.imread("../image/seam_carving.jpg")[::2, ::2][::2, ::2]
     #print "a1 shape=", a1.shape
     #a=np.zeros((a1.shape[0]+patch_size-1, a1.shape[1]+patch_size-1, 3), dtype=a1.dtype)
@@ -20,12 +20,18 @@ def retarget(a, w_ratio, h_ratio):
     bitmap1=NNF_dll.np2Bitmap(a)
 
     #b1=cv2.resize(a1,  (int(a1.shape[1]*w_rate), int(a1.shape[0]*h_rate)))
-    
+    b=None
+
     while iterate:
         w_rate=0.95
         h_rate=0.95
         
         if w_ratio>1 or h_ratio>1:
+            #print type(w_ratio)
+            #print type(1)
+            #print ">>break out"
+            #print w_ratio
+            #print h_ratio
             break
         if w_ratio>0.95:
             w_rate=w_ratio
@@ -39,6 +45,8 @@ def retarget(a, w_ratio, h_ratio):
         it+=1
 
         b=cv2.resize(a,  (int(a.shape[1]*w_rate), int(a.shape[0]*h_rate)))
+        #pl.imshow(b)
+        #pl.show()
         #pl.imshow(b1)
         #pl.show()
         #print "b1 shape=", b1.shape
@@ -85,7 +93,7 @@ def retarget(a, w_ratio, h_ratio):
 
                 b[i][j]=((p_com/Ns+p_coh/Nt)/(n/Ns+m/Nt)).astype("int32")
         #pl.subplot(num_it/2+1,2,it+1).imshow(b)
-
+    #print type(b)
     pl.subplot(2,1,1).imshow(b)
     b=b[:-patch_size, :-patch_size]
     #pl.subplot(num_it/2+1,2,num_it+2).imshow(a)
@@ -96,7 +104,7 @@ def retarget(a, w_ratio, h_ratio):
     return b
 
 def main():
-    a=pl.imread("../image/seam_carving.jpg")[::2,::2][::2,::2]
+    a=sci.imread("../image/seam_carving.jpg")[::2,::2][::2,::2]
     retarget(a,0.8,1)
 
 if __name__=="__main__":
