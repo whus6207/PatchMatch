@@ -14,8 +14,8 @@ endif
 all: ANN
 
 dll:
-	g++ -shared -fPIC -o NNF.dll pm_minimal.cpp -DEXPORT_DLL -g -O3
-	g++ -shared -fPIC -o NNF_center.dll pm_minimal_center.cpp -DEXPORT_DLL -g -O3
+	g++ -shared -fPIC -o NNF.dll pm_minimal.cpp -DEXPORT_DLL -O6 -s -ffast-math -fomit-frame-pointer -fstrength-reduce -funroll-loops
+	g++ -shared -fPIC -o NNF_center.dll pm_minimal_center.cpp -DEXPORT_DLL -O6 -s -ffast-math -fomit-frame-pointer -fstrength-reduce -funroll-loops
 
 
 ANN: pm_minimal.cpp

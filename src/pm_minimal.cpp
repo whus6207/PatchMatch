@@ -1,11 +1,5 @@
 
 /* -------------------------------------------------------------------------
-  Minimal (unoptimized) example of PatchMatch. Requires that ImageMagick be installed.
-
-  To improve generality you can:
-   - Use whichever distance function you want in dist(), e.g. compare SIFT descriptors computed densely.
-   - Search over a larger search space, such as rotating+scaling patches (see MATLAB mex for examples of both)
-  
   To improve speed you can:
    - Turn on optimizations (/Ox /Oi /Oy /fp:fast or -O6 -s -ffast-math -fomit-frame-pointer -fstrength-reduce -msse2 -funroll-loops)
    - Use the MATLAB mex which is already tuned for speed
@@ -25,7 +19,7 @@
 #define MIN(a, b) ((a)<(b)?(a):(b))
 #endif
 
-#define INT_MAX 99999999
+#define INT_MAX 0xfffffff
 #define XY_TO_INT(x, y) (((y)<<12)|(x))
 #define INT_TO_X(v) ((v)&((1<<12)-1))
 #define INT_TO_Y(v) ((v)>>12)
@@ -50,36 +44,35 @@ class BITMAP { public:
 };
 
 
-// #ifdef EXPORT_DLL
-// #define DLLAPI __declspec(dllexport)
-  extern "C" {
-    BITMAP *GetBitMap(int w, int h, int *data){
-      BITMAP *bitmap = new BITMAP(w, h);
-      
-      int *p = bitmap->data;
-      for(int i=0; i<w*h; i++)
-        *p++ = data[i];
+extern "C" {
+  BITMAP *GetBitMap(int w, int h, int *data){
+    BITMAP *bitmap = new BITMAP(w, h);
+    
+    int *p = bitmap->data;
+    for(int i=0; i<w*h; i++)
+      *p++ = data[i];
 
-      return bitmap;
-    }
-
-    int test(int *&data){
-      data = new int[10];
-      for (int i=0; i<10; i++)
-        data[i] = 100-i;
-      return data[0];
-    }
-
-    int setPatchW(int i){
-      patch_w = i;
-      return patch_w;
-    }
-
-    int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff);
-
-    void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rotation);
+    return bitmap;
   }
-// #endif
+
+  int test(int *&data){
+    data = new int[10];
+    for (int i=0; i<10; i++)
+      data[i] = 100-i;
+    return data[0];
+  }
+
+  int setPatchW(int i){
+    patch_w = i;
+    return patch_w;
+  }
+
+  int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff);
+
+  void maskPatchMatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rotation, BITMAP *mask);
+  void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rotation);
+
+}
 
 BITMAP *load_bitmap(const char *filename) {
   char rawname[256], txtname[256];
@@ -185,8 +178,64 @@ int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff=INT_MA
   return ans;
 }
 
-void improve_guess(BITMAP *a, BITMAP *b, int ax, int ay, int &xbest, int &ybest, int &dbest, int bx, int by) {
-  int d = dist(a, b, ax, ay, bx, by, dbest);
+int distMask(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff=INT_MAX, BITMAP *mask = NULL) {
+  if (mask == NULL)
+    return dist(a, b, ax, ay, bx, by, cutoff);
+
+  int ans = 0;
+
+  int dxstart, dxend;
+  int dystart, dyend;
+  if (rotation == 0){
+    dxstart = dystart = 0;
+    dxend = dyend = patch_w;
+  }
+  else if(rotation == 90){
+    dxstart = -patch_w;
+    dystart = 0;
+    dxend = 0;
+    dyend = patch_w;
+  }
+  else if(rotation == 180){
+    dxstart = -patch_w;
+    dystart = -patch_w;
+    dxend = 0;
+    dyend = 0;
+  }
+  else if(rotation == 270){
+    dxstart = 0;
+    dystart = -patch_w;
+    dxend = patch_w;
+    dyend = 0;
+  }
+
+  for (int dy = dystart; dy < dyend; dy++) {
+    int *arow = &(*a)[ay+dy][ax];
+    int *brow = &(*b)[by+dy][bx];
+    int *maskrow = &(*mask)[by+dy][bx];
+    for (int dx = dxstart; dx < dxend; dx++) {
+      int ac = arow[dx];
+      int bc = brow[dx];
+      int masked = maskrow[bx];
+
+      if (masked&0xffffff > 0)
+        return INT_MAX;
+      int dr = (ac&255)-(bc&255);
+      int dg = ((ac>>8)&255)-((bc>>8)&255);
+      int db = (ac>>16)-(bc>>16);
+      ans += dr*dr + dg*dg + db*db;
+    }
+    if (ans >= cutoff) { return cutoff; }
+  }
+  return ans;
+}
+
+void improve_guess(BITMAP *a, BITMAP *b, int ax, int ay, int &xbest, int &ybest, int &dbest, int bx, int by, int rot, BITMAP *mask = NULL) {
+  int d;
+  if (mask)
+    d = distMask(a, b, ax, ay, bx, by, dbest, mask);
+  else
+    d = dist(a, b, ax, ay, bx, by, dbest);
   if (d < dbest) {
     dbest = d;
     xbest = bx;
@@ -195,6 +244,120 @@ void improve_guess(BITMAP *a, BITMAP *b, int ax, int ay, int &xbest, int &ybest,
 }
 
 /* Match image a to image b, returning the nearest neighbor field mapping a => b coords, stored in an RGB 24-bit image as (by<<12)|bx. */
+void maskPatchMatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0, BITMAP *mask = NULL) {
+  rotation = rot;
+  /* Initialize with random nearest neighbor field (NNF). */
+  ann = new BITMAP(a->w, a->h);
+  annd = new BITMAP(a->w, a->h);
+
+  int aews, aehs, aewe, aehe;
+  int bews, behs, bewe, behe;
+
+  /* Effective width and height (possible upper left corners of patches). */
+  aews = aehs = bews = behs = 0;
+  aewe = a->w - patch_w;
+  aehe = a->h - patch_w;
+  bewe = b->w - patch_w;
+  behe = b->h - patch_w; 
+  if (rotation == 90){
+    aews = patch_w;
+    aehs = 0;
+    aewe = a->w;
+    aehe = a->h - patch_w;
+
+    bews = patch_w;
+    behs = 0;
+    bewe = b->w;
+    behe = b->h - patch_w;
+  }
+  else if (rotation == 180){
+    aews = patch_w;
+    aehs = patch_w;
+    aewe = a->w;
+    aehe = a->h;
+
+    bews = patch_w;
+    behs = patch_w;
+    bewe = b->w;
+    behe = b->h;
+  }
+  else if (rotation == 270){
+    aews = 0;
+    aehs = patch_w;
+    aewe = a->w - patch_w;
+    aehe = a->h;
+
+    bews = 0;
+    behs = patch_w;
+    bewe = b->w - patch_w;
+    behe = b->h;
+  }
+
+  memset(ann->data, 0, sizeof(int)*a->w*a->h);
+  memset(annd->data, 0, sizeof(int)*a->w*a->h);
+  for (int ay = aehs; ay < aehe; ay++) {
+    for (int ax = aews; ax < aewe; ax++) {
+      int bx = bews + rand()%(bewe-bews);
+      int by = behs + rand()%(behe-behs);
+      (*ann)[ay][ax] = XY_TO_INT(bx, by);
+      (*annd)[ay][ax] = distMask(a, b, ax, ay, bx, by, INT_MAX, mask);
+    }
+  }
+
+  
+  for (int iter = 0; iter < pm_iters; iter++) {
+    /* In each iteration, improve the NNF, by looping in scanline or reverse-scanline order. */
+    int ystart = aehs, yend = aehe, ychange = 1;
+    int xstart = aews, xend = aewe, xchange = 1;
+    if (iter % 2 == 1) {
+      xstart = xend-1; xend = aews-1; xchange = -1;
+      ystart = yend-1; yend = aehs-1; ychange = -1;
+    }
+
+    for (int ay = ystart; ay != yend; ay = ay + ychange) {
+      // #pragma omp parallel for
+      for (int ax = xstart; ax != xend; ax += xchange) { 
+        /* Current (best) guess. */
+        int v = (*ann)[ay][ax];
+        int xbest = INT_TO_X(v), ybest = INT_TO_Y(v);
+        int dbest = (*annd)[ay][ax];
+
+        /* Propagation: Improve current guess by trying instead correspondences from left and above (below and right on odd iterations). */
+        if ((unsigned) (ax - xchange) < (unsigned) aewe) {
+          int vp = (*ann)[ay][ax-xchange];
+          int xp = INT_TO_X(vp) + xchange, yp = INT_TO_Y(vp);
+          if ((unsigned) xp < (unsigned) bewe && (unsigned) xp >= (unsigned) bews) {
+            improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp, rot, mask);
+          }
+        }
+
+        if ((unsigned) (ay - ychange) < (unsigned) aehe) {
+          int vp = (*ann)[ay-ychange][ax];
+          int xp = INT_TO_X(vp), yp = INT_TO_Y(vp) + ychange;
+          if ((unsigned) yp < (unsigned) behe && (unsigned) yp >= (unsigned) behs) {
+            improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp, rot, mask);
+          }
+        }
+
+        /* Random search: Improve current guess by searching in boxes of exponentially decreasing size around the current best guess. */
+        int rs_start = rs_max;
+        if (rs_start > MAX(b->w, b->h)) { rs_start = MAX(b->w, b->h); }
+        for (int mag = rs_start; mag >= 1; mag /= 2) {
+          /* Sampling window */
+          int xmin = MAX(xbest-mag, bews), xmax = MIN(xbest+mag+1,bewe);
+          int ymin = MAX(ybest-mag, behs), ymax = MIN(ybest+mag+1,behe);
+          int xp = xmin + rand()%(xmax-xmin);
+          int yp = ymin + rand()%(ymax-ymin);
+          improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp, rot, mask);
+        }
+
+        (*ann)[ay][ax] = XY_TO_INT(xbest, ybest);
+        (*annd)[ay][ax] = dbest;
+      }
+    }
+  }
+}
+
 void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) {
   rotation = rot;
   /* Initialize with random nearest neighbor field (NNF). */
@@ -278,7 +441,7 @@ void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) 
           int vp = (*ann)[ay][ax-xchange];
           int xp = INT_TO_X(vp) + xchange, yp = INT_TO_Y(vp);
           if ((unsigned) xp < (unsigned) bewe && (unsigned) xp >= (unsigned) bews) {
-            improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp);
+            improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp, rot);
           }
         }
 
@@ -286,7 +449,7 @@ void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) 
           int vp = (*ann)[ay-ychange][ax];
           int xp = INT_TO_X(vp), yp = INT_TO_Y(vp) + ychange;
           if ((unsigned) yp < (unsigned) behe && (unsigned) yp >= (unsigned) behs) {
-            improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp);
+            improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp, rot);
           }
         }
 
@@ -299,7 +462,7 @@ void patchmatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot = 0) 
           int ymin = MAX(ybest-mag, behs), ymax = MIN(ybest+mag+1,behe);
           int xp = xmin + rand()%(xmax-xmin);
           int yp = ymin + rand()%(ymax-ymin);
-          improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp);
+          improve_guess(a, b, ax, ay, xbest, ybest, dbest, xp, yp, rot);
         }
 
         (*ann)[ay][ax] = XY_TO_INT(xbest, ybest);
@@ -327,6 +490,7 @@ int main(int argc, char *argv[]) {
   patchmatch(a, b, ann, annd);
   start_time = clock() - start_time;
   printf("patchmatch uses %f seconds\n", ((float)start_time)/CLOCKS_PER_SEC);
+
   printf("Saving output images\n");
   save_bitmap(ann, argv[2]);
   save_bitmap(annd, argv[3]);
