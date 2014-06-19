@@ -98,7 +98,7 @@ def getNearBy(pos, size=3, limit=(None, None)):
 
 def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
   oriShape = img.shape
-  resize = 4
+  resize = 2
   img = img[:, :, :3]
   mask = mask[:, :, :3]
 
@@ -122,12 +122,12 @@ def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
 
     fix = [(0, 0), (0, -1), (-1, -1), (-1, 0)]
 
-    bitmap1 = np2Bitmap(img1)
-    bitmap2 = np2Bitmap(img2)
-    con = [0, 0, 0, 0]
-    for i in range(4):
-      ann, annd = patchmatch(bitmap1, bitmap2, rotation=i)
-      con[i] = reconstruct(ann, img2, rotation=i)
+    # bitmap1 = np2Bitmap(img1)
+    # bitmap2 = np2Bitmap(img2)
+    # con = [0, 0, 0, 0]
+    # for i in range(4):
+    #   ann, annd = patchmatch(bitmap1, bitmap2, rotation=i)
+    #   con[i] = reconstruct(ann, img2, rotation=i)
 
     order = zip(xs, ys)
     np.random.shuffle(order)
@@ -151,18 +151,16 @@ def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
 
         rot = diff.index(max(diff))
         img1[x, y] = con[rot][x, y]
-        # # rot = 0
         # bitmap1 = np2Bitmap(srcBlock)
         # bitmap2 = np2Bitmap(img2)
         # maskBitmap = np2Bitmap(GraytoRGB(mask.img.astype('uint8')))
-        # ann, annd = patchmatch(bitmap1, bitmap2, benchmark=False, mask=maskBitmap)
+        # ann, annd = patchmatch(bitmap1, bitmap2, rotation=rot, benchmark=False, mask=maskBitmap)
 
         # for k in range(x, x+1):
         #   for q in range(y, y+1):
         #     if mask.isMasked((k,q)):
         #       annposition = ann[ann.shape[0]/2 + k-x + fix[rot][0], ann.shape[1]/2 + q-y + fix[rot][1]]
         #       value = img2[annposition[0], annposition[1]]
-        #       # if the target place is not maseked
         #       if not mask.isMasked(annposition):
         #         img1[k, q] = value
         #         img2[k, q] = value
@@ -174,19 +172,18 @@ def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
         #         # find neareast unmasked pixel
         #         ann, annd = patchmatch(bitmap1, bitmap2, rotation=rot, benchmark=False, mask=maskBitmap)
         #         annposition = ann[ann.shape[0]/2 + k-x + fix[rot][0], ann.shape[1]/2 + q-y + fix[rot][1]]
-        #         value = img2[annposition[0], annposition[1]]
-                # value = []
-                # for kk in range(4):
-                #   for qq in range(4):
-                #     if not mask.isMasked((annposition[0] + kk-1, annposition[1] + qq-1)):
-                #       value.append(img1[annposition[0] + kk-1, annposition[1] + qq-1])
+        #         value = []
+        #         for kk in range(4):
+        #           for qq in range(4):
+        #             if not mask.isMasked((annposition[0] + kk-1, annposition[1] + qq-1)):
+        #               value.append(img1[annposition[0] + kk-1, annposition[1] + qq-1])
 
-                # value = reduce(lambda a,b: a+b, value)/len(value) if len(value) != 0 else [0, 0, 0]
+        #         value = reduce(lambda a,b: a+b, value)/len(value) if len(value) != 0 else [0, 0, 0]
         #         img1[k, q] = value
         #         img2[k, q] = value
 
-        # if canvas is not None:
-        #   canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))       
+        if canvas is not None:
+          canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))       
 
         if PlayerQueue:
           PlayerQueue.put(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
