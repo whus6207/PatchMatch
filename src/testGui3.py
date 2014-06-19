@@ -145,6 +145,7 @@ class DrawArea(QtGui.QWidget):
         painter = QtGui.QPainter(self)
         painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceOver)
         painter.drawImage(event.rect(), self.src_image)
+        painter.setCompositionMode(QtGui.QPainter.CompositionMode_SourceOver)
         painter.drawImage(event.rect(), self.op_image,)
 
     def resizeEvent(self, event):
