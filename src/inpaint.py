@@ -93,22 +93,18 @@ def getNearBy(pos, size=3, limit=(None, None)):
         y = 2*limit[1] - y - 1
       yield (x, y)        
 
-
-patch_w = 7
 def inpaint(img, mask, canvas = None):
-  global patch_w
-  img = img[:, :, :3][::2, ::2]
-  mask = mask[:, :, :3][::2, ::2]
+  oriShape = img.shape
+  img = img[:, :, :3][::2, ::2][::2, ::2]
+  mask = mask[:, :, :3][::2, ::2][::2, ::2]
   mask = Mask(mask)
 
   img1 = img.copy()
   img2 = img.copy()
-  patch_w = setPatchW(patch_w)
   xs, ys = np.where(mask.img != 0)
   for x, y in zip(xs, ys):
     img1[x, y] = [0, 0, 0]
     img2[x, y] = [255, 255, 255]
-
   # bitmap2 = np2Bitmap(img2)
   # bitmap1 = np2Bitmap(img1)
   # ann, annd = patchmatch(bitmap1, bitmap2)
@@ -144,18 +140,18 @@ def inpaint(img, mask, canvas = None):
 
         bitmap1 = np2Bitmap(srcBlock)
         bitmap2 = np2Bitmap(img2)
-        ann, annd = patchmatch(bitmap1, bitmap2, rot, False)
-        anncenter = ann[ann.shape[0]/2, ann.shape[1]/2]
+        # ann, annd = patchmatch(bitmap1, bitmap2, rot, False)
+        # anncenter = ann[ann.shape[0]/2, ann.shape[1]/2]
         # value = img2[ann[rot][x, y, 0]+fix[rot][0], ann[rot][x, y, 1] + fix[rot][1]]
-        value = img2[anncenter[0]+fix[rot][0], anncenter[1]+fix[rot][1]]
-        img1[x, y] = value
-        img2[x, y] = value
+        # value = img2[anncenter[0]+fix[rot][0], anncenter[1]+fix[rot][1]]
+        # img1[x, y] = value
+        # img2[x, y] = value
 
         if canvas is not None:
-          canvas.srcUpdate(img1.copy())
-        # PlayerQueue.put(cv2.resize(img1.copy(), (img.shape[1]*3, img.shape[0]*3)))
+          canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))       
+          # PlayerQueue.put(cv2.resize(img1.copy(), (img.shape[1]*3, img.shape[0]*3)))
     mask.shrink()
-  return img1
+  return cv2.resize(img1.copy(), (oriShape[1], oriShape[0]))
 
 def getblock(img, pos, size=25, patch_w=14):
   size += patch_w
