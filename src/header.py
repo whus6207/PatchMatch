@@ -10,7 +10,7 @@ def RGBtoGray(img):
 def GraytoRGB(img):
   if (len(img.shape) == 3 and img.shape[2] > 1):
     print 'only 1-channel grey scale image can be converted to RGB'
-  colorImg = np.zeros((img.shape[0], img.shape[1], 3))
+  colorImg = np.zeros((img.shape[0], img.shape[1], 3), dtype=img.dtype)
   colorImg[:, :, 0] = img
   colorImg[:, :, 1] = img
   colorImg[:, :, 2] = img

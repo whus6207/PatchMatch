@@ -19,7 +19,7 @@
 #define MIN(a, b) ((a)<(b)?(a):(b))
 #endif
 
-#define INT_MAX 99999999
+#define INT_MAX 0xfffffff
 #define XY_TO_INT(x, y) (((y)<<12)|(x))
 #define INT_TO_X(v) ((v)&((1<<12)-1))
 #define INT_TO_Y(v) ((v)>>12)
@@ -208,18 +208,18 @@ int distMask(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff=IN
     dxend = patch_w;
     dyend = 0;
   }
-  
+
   for (int dy = dystart; dy < dyend; dy++) {
     int *arow = &(*a)[ay+dy][ax];
     int *brow = &(*b)[by+dy][bx];
-    int *maskrow = &(*mask)[ay+dy][ax];
+    int *maskrow = &(*mask)[by+dy][bx];
     for (int dx = dxstart; dx < dxend; dx++) {
       int ac = arow[dx];
       int bc = brow[dx];
-      int masked = maskrow[dx];
+      int masked = maskrow[bx];
 
-      if (masked != 0)
-        return cutoff;
+      if (masked&0xffffff > 0)
+        return INT_MAX;
       int dr = (ac&255)-(bc&255);
       int dg = ((ac>>8)&255)-((bc>>8)&255);
       int db = (ac>>16)-(bc>>16);
@@ -234,9 +234,8 @@ void improve_guess(BITMAP *a, BITMAP *b, int ax, int ay, int &xbest, int &ybest,
   int d;
   if (mask)
     d = distMask(a, b, ax, ay, bx, by, dbest, mask);
-  else 
+  else
     d = dist(a, b, ax, ay, bx, by, dbest);
-
   if (d < dbest) {
     dbest = d;
     xbest = bx;
@@ -301,7 +300,7 @@ void maskPatchMatch(BITMAP *a, BITMAP *b, BITMAP *&ann, BITMAP *&annd, int rot =
       int bx = bews + rand()%(bewe-bews);
       int by = behs + rand()%(behe-behs);
       (*ann)[ay][ax] = XY_TO_INT(bx, by);
-      (*annd)[ay][ax] = dist(a, b, ax, ay, bx, by);
+      (*annd)[ay][ax] = distMask(a, b, ax, ay, bx, by, INT_MAX, mask);
     }
   }
 

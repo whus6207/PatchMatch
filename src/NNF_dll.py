@@ -73,20 +73,22 @@ loadDll()
 def setPatchW(i):
     return dll.setPatchW(i)
 
-
 def np2Bitmap(arr):
     arr = arr.astype('int32')
     data = (arr[:, :, 0] | arr[:, :, 1]<<8 | arr[:, :, 2]<<16 ).flatten() | 255 << 24
     data = (c_int * len(data))(*data)
     return dll.GetBitMap(arr.shape[1], arr.shape[0], data)
 
-def patchmatch(bitmap1, bitmap2, rotation=0, benchmark=True):
+def patchmatch(bitmap1, bitmap2, rotation=0, benchmark=True, mask=None):
     global times
     ann = POINTER(BITMAP)()
     annd = POINTER(BITMAP)()
     if benchmark:
         start = time.time()
-    dll.patchmatch(bitmap1, bitmap2, byref(ann), byref(annd), rotation*90)
+    if mask:
+        dll.maskPatchMatch(bitmap1, bitmap2, byref(ann), byref(annd), rotation*90, mask)
+    else:
+        dll.patchmatch(bitmap1, bitmap2, byref(ann), byref(annd), rotation*90)
     if benchmark:
         print 'cost', time.time() - start, 'seconds'
 

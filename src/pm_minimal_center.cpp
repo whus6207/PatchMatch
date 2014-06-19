@@ -141,8 +141,8 @@ int dist(BITMAP *a, BITMAP *b, int ax, int ay, int bx, int by, int cutoff=INT_MA
   int ans = 0;
 
   int start = -(patch_w/2), end = patch_w/2;
-  if ((ay + start < 0 || by + start < 0) || (ax + start < 0) || (bx + start < 0))
-    printf("start: %d, ay: %d, by: %d, ax: %d, bx: %d\n", start, ay, by, ax, bx);
+  // if ((ay + start < 0 || by + start < 0) || (ax + start < 0) || (bx + start < 0))
+    // printf("start: %d, ay: %d, by: %d, ax: %d, bx: %d\n", start, ay, by, ax, bx);
   for (int dy = start; dy < end; dy++) {
     int *arow = &(*a)[ay+dy][ax];
     int *brow = &(*b)[by+dy][bx];
