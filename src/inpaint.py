@@ -7,8 +7,7 @@ from scipy.ndimage import *
 from header import *
 from NNF_dll import *
 
-import sys
-sys.setrecursionlimit(10000)
+patch_w = 7
 
 class App(threading.Thread):
   def __init__(self, queue, running):
@@ -42,45 +41,37 @@ class Mask:
     self.img = (1.*img[:, :, 0] + img[:, :, 1] + img[:, :, 2])/3
     self.img[self.img>=10] = 255
     self.img[self.img<10] = 0
+    px, py = np.where(self.img > 0)
+    self.bbox = [(px.min(), py.min()), (px.max(), py.max())]
 
   def shrink(self):
-    # erase mask with the border
     self.img -= self.border
     self.img[self.img < 0] = 0
+
+
+    px, py = np.where(self.img > 0)
+    self.bbox = [(px.min(), py.min()), (px.max(), py.max())] if len(px) > 0 else [(None, None), (None, None)]
 
   def remains(self):
     n = (self.img > 0).sum()
     return n
 
-  def getBorder(self):
-    self.border = self.img - binary_erosion(self.img).astype(self.img.dtype)*255
-    # remove pixels that not in mask
-    xs, ys = np.where(self.border > 0)
-    a = 0
-    for x, y in zip(xs, ys):
-      if not self.isMasked((x, y)):
-        self.border[x, y] = 0
-        a += 1
-    if a != 0:
-      print 'unmasked area', a
-    return self.border
-
   def isMasked(self, pos):
     x, y = pos
     return (self.img[x, y] != 0)
 
-  def mask(self, img):
-    img = img.copy()
-    for i in range(img.shape[0]):
-      for j in range(img.shape[1]):
-        if self.isMasked((i, j)):
-          img[i, j] = np.zeros(3)
-    return img
-  def showImg(self):
-    a = self.img.copy()
-    a[:, :, [0, 2]] = a[:, :, [2, 0]]
-    cv2.imshow('mask-image', self.img)
-    cv2.waitKey(0)
+  def yeildOrder(self):
+    self.border = self.img - binary_erosion(self.img).astype(self.img.dtype)*255
+
+    blank = []
+    xs, ys = np.where(self.border > 0)
+    for (i, j) in zip(xs, ys):
+      if self.isMasked((i, j)):
+        block, upperleft = getblock(self.img, (i, j), size=patch_w)
+        blank.append([(i,j), (block==0).sum()])
+    blank = sorted(blank, key=lambda e: e[1], reverse=True)
+    for i in blank:
+      yield i[0]
 
 def getNearBy(pos, size=3, limit=(None, None)):
   r = range(-(size/2), size/2+1, 1)
@@ -97,105 +88,46 @@ def getNearBy(pos, size=3, limit=(None, None)):
 
 
 def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
-  oriShape = img.shape
-  resize = 2
-  img = img[:, :, :3]
-  mask = mask[:, :, :3]
+  global patch_w
 
-  img = cv2.resize(img, (int(img.shape[1]/resize), int(img.shape[0]/resize)))
-  mask = cv2.resize(mask, (int(mask.shape[1]/resize), int(mask.shape[0]/resize)))
+  oriShape = img.shape
+  setPatchW(7)
+  resize = 1
+  img = cv2.resize(img[:, :, :3], (int(img.shape[1]/resize), int(img.shape[0]/resize)))
+  mask = cv2.resize(mask[:, :, :3], (int(mask.shape[1]/resize), int(mask.shape[0]/resize)))
   mask = Mask(mask)
 
   img1 = img.copy()
-  img2 = img.copy()
   xs, ys = np.where(mask.img != 0)
   for x, y in zip(xs, ys):
     img1[x, y] = [0, 0, 0]
-    img2[x, y] = [255, 255, 255]
 
-  
-
+ 
   while mask.remains() > 0:
     print 'remain mask', mask.remains()
-    border = mask.getBorder().copy()
-    xs, ys = np.where(border > 0)
+    
+    ul = [max(mask.bbox[0][0] - img.shape[0]/3, 0), max(mask.bbox[0][1] - img.shape[1]/3, 0)]
+    br = [min(mask.bbox[1][0] + img.shape[0]/3, img.shape[0]), min(mask.bbox[1][1] + img.shape[1]/3, img.shape[1])]
 
-    fix = [(0, 0), (0, -1), (-1, -1), (-1, 0)]
+    # ul = [0, 0]
+    # br = [img.shape[0], img.shape[1]]
+    setMaskedArea(mask.img[ul[0]: br[0], ul[1]: br[1]])
+    bitmap1 = np2Bitmap(img[ul[0]: br[0], ul[1]: br[1]])
+    bitmap2 = np2Bitmap(img[ul[0]: br[0], ul[1]: br[1]])
+    ann, annd = patchmatch(bitmap1, bitmap2)
+    for index, (x, y) in enumerate(mask.yeildOrder()):
+      img1[x, y] = img[ann[x-ul[0], y-ul[1]][0] + ul[0], ann[x-ul[0], y-ul[1]][1] + ul[1]]
 
-    # bitmap1 = np2Bitmap(img1)
-    # bitmap2 = np2Bitmap(img2)
-    # con = [0, 0, 0, 0]
-    # for i in range(4):
-    #   ann, annd = patchmatch(bitmap1, bitmap2, rotation=i)
-    #   con[i] = reconstruct(ann, img2, rotation=i)
-
-    order = zip(xs, ys)
-    np.random.shuffle(order)
-    for x, y in order:
-      if border[x, y] != 0:
-        srcBlock = getblock(img1, (x, y))
-        dstBlock = getblock(img2, (x, y))
-
-        diff = (1.*srcBlock - dstBlock)**2
-
-        valueDiff1 = diff[:diff.shape[0]/2, :diff.shape[1]/2] # upperleft
-        valueDiff2 = diff[diff.shape[0]/2:diff.shape[0], :diff.shape[1]/2] #bottomleft
-        valueDiff3 = diff[:diff.shape[0]/2, diff.shape[1]/2:diff.shape[1]] #upperright
-        valueDiff4 = diff[diff.shape[0]/2:diff.shape[0], diff.shape[1]/2:diff.shape[1]] #bottomright
-
-        valueDiff1 = valueDiff1.mean()
-        valueDiff2 = valueDiff2.mean()
-        valueDiff3 = valueDiff3.mean()
-        valueDiff4 = valueDiff4.mean()
-        diff = [valueDiff1, valueDiff3, valueDiff4, valueDiff2]
-
-        rot = diff.index(max(diff))
-        # bitmap1 = np2Bitmap(srcBlock)
-        # bitmap2 = np2Bitmap(img2)
-        # maskBitmap = np2Bitmap(GraytoRGB(mask.img.astype('uint8')))
-        # ann, annd = patchmatch(bitmap1, bitmap2, rotation=rot, benchmark=False, mask=maskBitmap)
-
-        # for k in range(x, x+1):
-        #   for q in range(y, y+1):
-        #     if mask.isMasked((k,q)):
-        #       annposition = ann[ann.shape[0]/2 + k-x + fix[rot][0], ann.shape[1]/2 + q-y + fix[rot][1]]
-        #       value = img2[annposition[0], annposition[1]]
-        #       if not mask.isMasked(annposition):
-        #         img1[k, q] = value
-        #         img2[k, q] = value
-
-        #         mask.img[k, q] = 0
-        #         border[k, q] = 0
-        #       else:
-        #         print 'in hear', annd[ann.shape[0]/2 + k-x + fix[rot][0], ann.shape[1]/2 + q-y + fix[rot][1]]
-        #         # find neareast unmasked pixel
-        #         ann, annd = patchmatch(bitmap1, bitmap2, rotation=rot, benchmark=False, mask=maskBitmap)
-        #         annposition = ann[ann.shape[0]/2 + k-x + fix[rot][0], ann.shape[1]/2 + q-y + fix[rot][1]]
-        #         value = []
-        #         for kk in range(4):
-        #           for qq in range(4):
-        #             if not mask.isMasked((annposition[0] + kk-1, annposition[1] + qq-1)):
-        #               value.append(img1[annposition[0] + kk-1, annposition[1] + qq-1])
-
-        #         value = reduce(lambda a,b: a+b, value)/len(value) if len(value) != 0 else [0, 0, 0]
-        #         img1[k, q] = value
-        #         img2[k, q] = value
-
-        if canvas is not None:
-          canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))       
-
-        if PlayerQueue:
-          PlayerQueue.put(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
+      if canvas is not None:
+        canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
+      if PlayerQueue is not None and index % 10 == 0:
+        PlayerQueue.put(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
     mask.shrink()
-
-  # npl.imshow(img1)
-  # npl.show()
   return cv2.resize(img1.copy(), (oriShape[1], oriShape[0]))
 
-def getblock(img, pos, size=11, patch_w=11):
-  size += patch_w
-  block = img[pos[0]-size/2: pos[0]+size/2+1, pos[1]-size/2: pos[1]+size/2+1, 0:3]
-  return block
+def getblock(img, pos, size=7):
+  block = img[pos[0]-size/2: pos[0]+size/2+1, pos[1]-size/2: pos[1]+size/2+1]
+  return block, (pos[0]-size/2, pos[1]-size/2)
 
 def reconstruct(ann, targetImage, rotation=0):
   fix = [(0, 0), (0, -1), (-1, -1), (-1, 0)]
@@ -206,19 +138,20 @@ def reconstruct(ann, targetImage, rotation=0):
   return temp
 
 def main():
+  # origin = npl.imread('../image/seam_carving.jpg')
+  # mask = npl.imread('../image/seam_carving-mask.jpg')
+
+  origin = npl.imread('../image/example7.jpg')
+  mask = npl.imread('../image/example7-mask.jpg')
+
   PlayerQueue = Queue.Queue()
   running = [True]
   Player = App(PlayerQueue, running)
   Player.start()
 
-  # origin = npl.imread('../image/seam_carving.jpg')
-  # mask = npl.imread('../image/seam_carving-mask.jpg')
-
-  origin = npl.imread('../image/example.jpg')
-  mask = npl.imread('../image/example-mask.jpg')
-
   start = time.time()
   img = inpaint(origin, mask, PlayerQueue=PlayerQueue, running=running)
+  # img = inpaint(origin, mask)
   print 'use', time.time() - start, 'second'
 
   while PlayerQueue.qsize() != 0 and running:
