@@ -94,12 +94,12 @@ def retarget(a, w_ratio, h_ratio):
                 b[i][j]=((p_com/Ns+p_coh/Nt)/(n/Ns+m/Nt)).astype("int32")
         #pl.subplot(num_it/2+1,2,it+1).imshow(b)
     #print type(b)
-    pl.subplot(2,1,1).imshow(b)
+    # pl.subplot(2,1,1).imshow(b)
     b=b[:-patch_size, :-patch_size]
     #pl.subplot(num_it/2+1,2,num_it+2).imshow(a)
     #pl.subplot(1,2,1).imshow(b)
-    pl.subplot(2,1,2).imshow(a)
-    pl.show()
+    # pl.subplot(2,1,2).imshow(a)
+    # pl.show()
     
     return b
 

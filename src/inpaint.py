@@ -33,9 +33,6 @@ class App(threading.Thread):
     if (cv2.waitKey(1) & 0xFF) == ord('q'):
       self.running.pop()
 
-
-
-
 class Mask:
   def __init__(self, img):
     self.img = (1.*img[:, :, 0] + img[:, :, 1] + img[:, :, 2])/3
@@ -86,6 +83,10 @@ def getNearBy(pos, size=3, limit=(None, None)):
       yield (x, y)        
 
 
+def getblock(img, pos, size=7):
+  block = img[pos[0]-size/2: pos[0]+size/2+1, pos[1]-size/2: pos[1]+size/2+1]
+  return block, (pos[0]-size/2, pos[1]-size/2)
+
 
 def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
   global patch_w
@@ -101,7 +102,6 @@ def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
   xs, ys = np.where(mask.img != 0)
   for x, y in zip(xs, ys):
     img1[x, y] = [0, 0, 0]
-
  
   while mask.remains() > 0:
     print 'remain mask', mask.remains()
@@ -118,24 +118,14 @@ def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
     for index, (x, y) in enumerate(mask.yeildOrder()):
       img1[x, y] = img[ann[x-ul[0], y-ul[1]][0] + ul[0], ann[x-ul[0], y-ul[1]][1] + ul[1]]
 
-      if canvas is not None:
-        canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
+      # if canvas is not None:
+      #   canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
       if PlayerQueue is not None and index % 10 == 0:
         PlayerQueue.put(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
     mask.shrink()
   return cv2.resize(img1.copy(), (oriShape[1], oriShape[0]))
 
-def getblock(img, pos, size=7):
-  block = img[pos[0]-size/2: pos[0]+size/2+1, pos[1]-size/2: pos[1]+size/2+1]
-  return block, (pos[0]-size/2, pos[1]-size/2)
 
-def reconstruct(ann, targetImage, rotation=0):
-  fix = [(0, 0), (0, -1), (-1, -1), (-1, 0)]
-  temp = np.zeros((ann.shape[0], ann.shape[1], targetImage.shape[2]), dtype=targetImage.dtype)
-  for i in range(ann.shape[0]):
-    for j in range(ann.shape[1]):
-      temp[i, j] = targetImage[ann[i, j, 0]+fix[rotation][0], ann[i, j, 1]+fix[rotation][1]]
-  return temp
 
 def main():
   # origin = npl.imread('../image/seam_carving.jpg')

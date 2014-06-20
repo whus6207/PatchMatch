@@ -234,18 +234,13 @@ class DrawArea(QtGui.QWidget):
         op_image = img2np(self.op_image).copy()
         self.initOpImage()
         #self.update()
-        self.paintEvent(QtGui.QPaintEvent(self.rect()))
-        time.sleep(1)
-        
         # for i in range(100):
         #     img = np.random.randint(0, 255, op_image.shape[0]*op_image.shape[1]*3)
         #     img = img.reshape((op_image.shape[0], op_image.shape[1],3))
         #     self.srcUpdate(img)
 
-        img = inpaint(img2np(self.src_image), op_image, self)
-        
+        img = inpaint(img2np(self.src_image), op_image)
         self.srcUpdate(img)
-
         print 'return'
     def myRetarget(self):
         print "in Retarget"
@@ -269,9 +264,6 @@ class DrawArea(QtGui.QWidget):
         print width_scale
         
         new_img = retarget(img2np(self.src_image),wscale_fl, hscale_fl)
-
-        
-        
     
     def srcUpdate(self,new_src):
         # pass
@@ -280,7 +272,7 @@ class DrawArea(QtGui.QWidget):
         print 'srcUpdate'
         self.src_image = new_src
         #self.update()
-        self.paintEvent(QtGui.QPaintEvent(self.rect()))
+        # self.paintEvent(QtGui.QPaintEvent(self.rect()))
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self):
@@ -407,7 +399,6 @@ class MainWindow(QtGui.QMainWindow):
                 return self.saveFile('png')
             elif ret == QtGui.QMessageBox.Cancel:
                 return False
-
         return True
 
     def saveFile(self, fileFormat):
@@ -421,11 +412,8 @@ class MainWindow(QtGui.QMainWindow):
 
         return False
 
-
 if __name__ == '__main__':
-
     import sys
-
     app = QtGui.QApplication(sys.argv)
     window = MainWindow()
     window.show()

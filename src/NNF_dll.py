@@ -51,22 +51,22 @@ def loadDll():
     dll.setPatchW.restype = c_int
     dll.setPatchW.argtype = [c_int]
 
-    # dllc = CDLL(os.getcwd() + "/NNF_center.dll")
-    # # np.ctypeslib.load_library(NNFDllPath, ".")
-    # dllc.GetBitMap.restype = POINTER(BITMAP)
-    # dllc.GetBitMap.argtypes = [c_int, c_int, POINTER(c_int)];
+    dllc = CDLL(os.getcwd() + "/NNF_center.dll")
+    # np.ctypeslib.load_library(NNFDllPath, ".")
+    dllc.GetBitMap.restype = POINTER(BITMAP)
+    dllc.GetBitMap.argtypes = [c_int, c_int, POINTER(c_int)];
 
-    # dllc.dist.restype = c_int
-    # dllc.dist.argtypes = [POINTER(BITMAP), POINTER(BITMAP), c_int, c_int, c_int, c_int]
+    dllc.dist.restype = c_int
+    dllc.dist.argtypes = [POINTER(BITMAP), POINTER(BITMAP), c_int, c_int, c_int, c_int]
 
-    # dllc.patchmatch.restype = None
-    # dllc.patchmatch.argtype = [POINTER(BITMAP), POINTER(BITMAP), POINTER(POINTER(BITMAP)), POINTER(POINTER(BITMAP))]
+    dllc.patchmatch.restype = None
+    dllc.patchmatch.argtype = [POINTER(BITMAP), POINTER(BITMAP), POINTER(POINTER(BITMAP)), POINTER(POINTER(BITMAP))]
 
-    # dllc.test.restype = c_int
-    # dllc.test.argtype = [POINTER(c_int)]
+    dllc.test.restype = c_int
+    dllc.test.argtype = [POINTER(c_int)]
 
-    # dllc.setPatchW.restype = c_int
-    # dllc.setPatchW.argtype = [c_int]
+    dllc.setPatchW.restype = c_int
+    dllc.setPatchW.argtype = [c_int]
 
 loadDll()
 

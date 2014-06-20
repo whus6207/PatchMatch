@@ -19,7 +19,7 @@ dll:
 
 
 ANN: pm_minimal.cpp
-	$(GCC) $< -o ANN
+	$(GCC) $< -o ANN -O6 -s -ffast-math -fomit-frame-pointer -fstrength-reduce -funroll-loops
 
 prog: 
 	#..
