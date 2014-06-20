@@ -17,18 +17,23 @@ class Worker(threading.Thread):
   def run(self):
     while self.running:
       try:
-        patch_size, a, coh_ann, Ns, Nt, m, i, bshape1 = self.inqueue.get(block=False)
+        patch_size, a, coh_ann, Ns, Nt, i, bshape1 = self.inqueue.get(block=False)
         value = []
         for j in range(patch_size/2, bshape1-(patch_size/2)):
             p_com = np.zeros(3)
             p_coh = np.zeros(3)
             n=0#len(com_map[i][j])
+            m=(patch_size)**2
 
             for x in range (-(patch_size/2), patch_size/2+1):
                 for y in range (-(patch_size/2), patch_size/2+1):
-                    if coh_ann[i+x][j+y][1]-x>a.shape[1]-patch_size/2 or coh_ann[i+x][j+y][1]-x<patch_size/2:
+                    if coh_ann[i+x][j+y][0]-x>a.shape[0]-patch_size/2 or coh_ann[i+x][j+y][0]-x<patch_size/2:
+                        #print (coh_ann[i+x][j+y]), i,j, x, y
+                        m-=1
                         continue
-                    if coh_ann[i+x][j+y][0]-y>a.shape[0]-patch_size/2 or coh_ann[i+x][j+y][1]-y<patch_size/2:
+                    if coh_ann[i+x][j+y][1]-y>a.shape[1]-patch_size/2 or coh_ann[i+x][j+y][1]-y<patch_size/2:
+                        #print (coh_ann[i+x][j+y]), i,j, x, y
+                        m-=1
                         continue
                     p_coh+=a[ int(coh_ann[i+x][j+y][0])-x , int(coh_ann[i+x][j+y][1])-y ]
             value.append((p_com/Ns+p_coh/Nt)/(n/Ns+m/Nt))
@@ -69,11 +74,7 @@ def retarget(a1, w_ratio, h_ratio):
         w_rate = max(0.95, w_ratio)
         h_rate = max(0.95, h_ratio)
 
-        b1=cv2.resize(b,  (int(b.shape[1]*w_rate), int(b.shape[0]*h_rate)))
-        b =np.zeros((b1.shape[0]+patch_size-1,b1.shape[1]+patch_size-1,3), dtype=b1.dtype)
-        b[patch_size/2:-patch_size/2+1, patch_size/2:-patch_size/2+1]=b1
-    
-
+        
         if b.shape[0] < targetShape[0] or b.shape[1] < targetShape[1]:
             if not b.shape[0]<targetShape[0]:
                 w_rate=1
@@ -81,6 +82,10 @@ def retarget(a1, w_ratio, h_ratio):
                 h_rate=1
             else:
                 break
+        b1=cv2.resize(b,  (int(b.shape[1]*w_rate), int(b.shape[0]*h_rate)))
+        b =np.zeros((b1.shape[0]+patch_size-1,b1.shape[1]+patch_size-1,3), dtype=b1.dtype)
+        b[patch_size/2:-patch_size/2+1, patch_size/2:-patch_size/2+1]=b1
+    
         #pl.imshow(b)
         #pl.show()
         #pl.imshow(b1)
@@ -107,7 +112,7 @@ def retarget(a1, w_ratio, h_ratio):
 
         Ns=(a.shape[0]-patch_size)*(a.shape[1]-patch_size)*1.0
         Nt=(b.shape[0]-patch_size)*(b.shape[1]-patch_size)*1.0
-        m=(patch_size)**2
+        
         # calculate value of each pixel
         
         workerQueue = Queue.Queue()
@@ -118,12 +123,11 @@ def retarget(a1, w_ratio, h_ratio):
             worker = Worker(inQueue, workerQueue, True)
             worker.start()
             runningNumber += 1
-            inQueue.put((patch_size, a, coh_ann, Ns, Nt, m, i, b.shape[1]))
+            inQueue.put((patch_size, a, coh_ann, Ns, Nt, i, b.shape[1]))
         print b.shape[0] - patch_size, 'workers up'
 
         k = 0
         while k != runningNumber:
-            PlayerQueue.put(cv2.resize(b.copy(), (b.shape[1]*4, b.shape[0]*4)))
             line, value = workerQueue.get(block=True)
             k+=1
             b[line, patch_size/2:b.shape[1]-(patch_size/2)]  = np.array(value)
@@ -143,6 +147,9 @@ def retarget(a1, w_ratio, h_ratio):
         print "b shape after crop: ", b.shape
 
 
+        pl.subplot(2,1,1).imshow(b)
+        pl.subplot(2,1,2).imshow(a1)
+        pl.show()
     while PlayerQueue.qsize() != 0 and running:
         time.sleep(0)
     running.pop()
@@ -153,13 +160,13 @@ def retarget(a1, w_ratio, h_ratio):
     # pl.subplot(2,1,1).imshow(b)
     #b=b[:-patch_size, :-patch_size]
     #pl.subplot(num_it/2+1,2,num_it+2).imshow(a)
-    pl.subplot(2,1,2).imshow(a)
+    pl.subplot(2,1,2).imshow(a1)
     pl.show()
     return b
 
 def main():
     a=pl.imread("../image/seam_carving.jpg")
-    retarget(a,0.9,1)
+    retarget(a,0.6,1)
 
 if __name__=="__main__":
     main()
