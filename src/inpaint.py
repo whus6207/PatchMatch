@@ -7,7 +7,7 @@ from scipy.ndimage import *
 from header import *
 from NNF_dll import *
 
-patch_w = 7
+patch_w = 11
 
 class App(threading.Thread):
   def __init__(self, queue, running):
@@ -88,12 +88,18 @@ def getblock(img, pos, size=7):
   return block, (pos[0]-size/2, pos[1]-size/2)
 
 
-def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
+def inpaint(img, mask, canvas = None):
   global patch_w
+
+  PlayerQueue = Queue.Queue()
+  running = [True]
+  Player = App(PlayerQueue, running)
+  Player.start()
+
 
   oriShape = img.shape
   setPatchW(7)
-  resize = 1
+  resize = 1.5
   img = cv2.resize(img[:, :, :3], (int(img.shape[1]/resize), int(img.shape[0]/resize)))
   mask = cv2.resize(mask[:, :, :3], (int(mask.shape[1]/resize), int(mask.shape[0]/resize)))
   mask = Mask(mask)
@@ -123,32 +129,27 @@ def inpaint(img, mask, canvas = None, PlayerQueue = None, running = None):
       if PlayerQueue is not None and index % 10 == 0:
         PlayerQueue.put(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
     mask.shrink()
+
+  while PlayerQueue.qsize() != 0 and running:
+    time.sleep(0)
+  running.pop()
+  npl.subplot(1,1,1).imshow(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
+  npl.show()
   return cv2.resize(img1.copy(), (oriShape[1], oriShape[0]))
 
 
 
 def main():
-  # origin = npl.imread('../image/seam_carving.jpg')
-  # mask = npl.imread('../image/seam_carving-mask.jpg')
+  origin = npl.imread('../image/seam_carving.jpg')
+  mask = npl.imread('../image/seam_carving-mask.jpg')
 
-  origin = npl.imread('../image/example7.jpg')
-  mask = npl.imread('../image/example7-mask.jpg')
+  # origin = npl.imread('../image/example5.jpg')
+  # mask = npl.imread('../image/example5-mask.jpg')
 
-  PlayerQueue = Queue.Queue()
-  running = [True]
-  Player = App(PlayerQueue, running)
-  Player.start()
 
   start = time.time()
-  img = inpaint(origin, mask, PlayerQueue=PlayerQueue, running=running)
-  # img = inpaint(origin, mask)
+  inpaint(origin, mask)
   print 'use', time.time() - start, 'second'
-
-  while PlayerQueue.qsize() != 0 and running:
-    time.sleep(0)
-  running.pop()
-  npl.subplot(1,1,1).imshow(img)
-  npl.show()
   return
 
 if __name__ == "__main__":
