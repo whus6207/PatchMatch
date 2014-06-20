@@ -32,21 +32,21 @@ def loadDll():
     global dllc
     #load dll and get the function object
     dll = CDLL(os.getcwd() + "/NNF.dll")
-    # np.ctypeslib.load_library(NNFDllPath, ".")
+
     dll.GetBitMap.restype = POINTER(BITMAP)
     dll.GetBitMap.argtypes = [c_int, c_int, POINTER(c_int)];
+
+    dll.setMaskedArea.restype = c_int
+    dll.setMaskedArea.argtype = [c_int, c_int, POINTER(c_int)]
 
     dll.dist.restype = c_int
     dll.dist.argtypes = [POINTER(BITMAP), POINTER(BITMAP), c_int, c_int, c_int, c_int]
 
-    dll.patchmatch.restype = None
-    dll.patchmatch.argtype = [POINTER(BITMAP), POINTER(BITMAP), POINTER(POINTER(BITMAP)), POINTER(POINTER(BITMAP)), c_int]
-
-    dll.maskPatchMatch.restype = None
-    dll.maskPatchMatch.argtype = [POINTER(BITMAP), POINTER(BITMAP), POINTER(POINTER(BITMAP)), POINTER(POINTER(BITMAP)), c_int, POINTER(BITMAP)]
-
     dll.test.restype = c_int
     dll.test.argtype = [POINTER(c_int)]
+
+    dll.patchmatch.restype = None
+    dll.patchmatch.argtype = [POINTER(BITMAP), POINTER(BITMAP), POINTER(POINTER(BITMAP)), POINTER(POINTER(BITMAP)), c_int]
 
     dll.setPatchW.restype = c_int
     dll.setPatchW.argtype = [c_int]
@@ -78,6 +78,11 @@ def np2Bitmap(arr):
     data = (arr[:, :, 0] | arr[:, :, 1]<<8 | arr[:, :, 2]<<16 ).flatten() | 255 << 24
     data = (c_int * len(data))(*data)
     return dll.GetBitMap(arr.shape[1], arr.shape[0], data)
+
+def setMaskedArea(arr):
+    data = arr.flatten().astype('int32')
+    data = (c_int * len(data))(*data)
+    dll.setMaskedArea(arr.shape[1], arr.shape[0], data)
 
 def patchmatch(bitmap1, bitmap2, rotation=0, benchmark=True, mask=None):
     global times
@@ -130,16 +135,6 @@ def patchmatchc(bitmap1, bitmap2, benchmark=True):
 
 
 def main(tt='block.jpg', tt2='../image/example.jpg'):
-    # test utility
-    w = POINTER(c_int)()
-    dll.test(byref(w))
-    for i in range(10):
-        if w[i] != 100-i:
-            print 'test error!!, w[%d]=%d'%(i, w[i])
-            exit(1)
-    print 'test finish, all correct'.center(100, '-')
-
-
     # load image data
     import matplotlib.pyplot as npl
     data1 = npl.imread(tt)

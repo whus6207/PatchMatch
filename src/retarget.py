@@ -2,51 +2,51 @@ import NNF_dll
 import numpy as np
 import cv2
 import matplotlib.pyplot as pl
-import scipy.ndimage
+import scipy.ndimage as sci
 import math
 
-def retarget(a, w_ratio, h_ratio):
+def retarget(a1, w_ratio, h_ratio):
     patch_size=7
-    it=1
-    iterate=True
     #w_rate=0.95
     #h_rate=1
     NNF_dll.setPatchW(patch_size)
-
-    #a=pl.imread("../image/seam_carving.jpg")[::2, ::2][::2, ::2]
-    #print "a1 shape=", a1.shape
-    #a=np.zeros((a1.shape[0]+patch_size-1, a1.shape[1]+patch_size-1, 3), dtype=a1.dtype)
-    #a[patch_size/2 : -patch_size/2+1, patch_size/2 : -patch_size/2+1]=a1
+    a1=a1[::2,::2,:3][::2, ::2]
+    print 'origin image shape', a1.shape
+    a=np.zeros((a1.shape[0]+patch_size-1, a1.shape[1]+patch_size-1, 3), dtype=a1.dtype)
+    a[patch_size/2 : -patch_size/2+1, patch_size/2 : -patch_size/2+1]=a1
     bitmap1=NNF_dll.np2Bitmap(a)
 
+    targetShape = [a.shape[0]*h_ratio, a.shape[1]*w_ratio]
+
     #b1=cv2.resize(a1,  (int(a1.shape[1]*w_rate), int(a1.shape[0]*h_rate)))
+    b = a1
     
-    while iterate:
-        w_rate=0.95
-        h_rate=0.95
-        
+    print "before", a.shape, b.shape
+    print "targetShape", targetShape
+    while True:
         if w_ratio>1 or h_ratio>1:
             break
-        if w_ratio>0.95:
-            w_rate=w_ratio
-        if h_rate>0.95:
-            h_rate=h_ratio
 
-        if 0.95**it<=w_ratio and 0.95**it<=h_ratio:
-            iterate=False
+        w_rate = max(0.95, w_ratio)
+        h_rate = max(0.95, h_ratio)
 
-        
-        if it==1:
-            b=cv2.resize(a,  (int(a.shape[1]*h_rate), int(a.shape[0]*w_rate)))
-        else:
-            b=cv2.resize(b,  (int(b.shape[1]*h_rate), int(b.shape[0]*w_rate)))
+        b1=cv2.resize(b,  (int(b.shape[1]*w_rate), int(b.shape[0]*h_rate)))
+        b =np.zeros((b1.shape[0]+patch_size-1,b1.shape[1]+patch_size-1,3), dtype=b1.dtype)
+        b[patch_size/2:-patch_size/2+1, patch_size/2:-patch_size/2+1]=b1
+    
 
-        it+=1
+        if b.shape[0] < targetShape[0] or b.shape[1] < targetShape[1]:
+            if not b.shape[0]<targetShape[0]:
+                w_rate=1
+            elif not b.shape[1]<targetShape[1]:
+                h_rate=1
+            else:
+                break
+        #pl.imshow(b)
+        #pl.show()
         #pl.imshow(b1)
         #pl.show()
         #print "b1 shape=", b1.shape
-        #b=np.zeros((b1.shape[0]+patch_size-1,b1.shape[1]+patch_size-1,3), dtype=b1.dtype)
-        #b[patch_size/2:-patch_size/2+1, patch_size/2:-patch_size/2+1]=b1
 
 
         print "a shape=", a.shape
@@ -67,7 +67,7 @@ def retarget(a, w_ratio, h_ratio):
 
         Ns=(a.shape[0]-patch_size)*(a.shape[1]-patch_size)*1.0
         Nt=(b.shape[0]-patch_size)*(b.shape[1]-patch_size)*1.0
-        m=1#(patch_size)**2
+        m=(patch_size)**2
         # calculate value of each pixel
         for i in range(patch_size/2, b.shape[0]-(patch_size/2)):
             for j in range(patch_size/2, b.shape[1]-(patch_size/2)):
@@ -76,36 +76,36 @@ def retarget(a, w_ratio, h_ratio):
                 n=0#len(com_map[i][j])
 
                 #for k in range(n):
-                #    p_com+=a[ int(com_map[i][j][k][0]) ][ int(com_map[i][j][k][1]) ]
-                
-                for x in range (1):
-                #for x in range (-(patch_size/2), patch_size/2+1):
-                    for y in range (1):
-                    #for y in range (-(patch_size/2), patch_size/2+1):
-                        if coh_ann[i+x][j+y][1]-y>=a.shape[1]:
-                            print (coh_ann[i+x][j+y]), i,j, x, y
+                #    p_com+=a[ int(com_map[i][j][k][0]) , int(com_map[i][j][k][1]) ]
+                #for x in range (1):
+                for x in range (-(patch_size/2), patch_size/2+1):
+                    #for y in range (1):
+                    for y in range (-(patch_size/2), patch_size/2+1):
+                        if coh_ann[i+x][j+y][1]-x>a.shape[1]-patch_size/2 or coh_ann[i+x][j+y][1]-x<patch_size/2:
+                            #print (coh_ann[i+x][j+y]), i,j, x, y
                             continue
-                        if coh_ann[i+x][j+y][0]-x>=a.shape[0]:
-                            print (coh_ann[i+x][j+y]), i,j, x, y
+                        if coh_ann[i+x][j+y][0]-y>a.shape[0]-patch_size/2 or coh_ann[i+x][j+y][1]-y<patch_size/2:
+                            #print (coh_ann[i+x][j+y]), i,j, x, y
                             continue
-                        p_coh+=a[ int(coh_ann[i+x][j+y][0])-x ][ int(coh_ann[i+x][j+y][1])-y ]
+                        p_coh+=a[ int(coh_ann[i+x][j+y][0])-x , int(coh_ann[i+x][j+y][1])-y ]
 
                 b[i][j]=((p_com/Ns+p_coh/Nt)/(n/Ns+m/Nt)).astype("int32")
-        
         b=b[patch_size/2:-patch_size/2, patch_size/2:-patch_size/2]
-        #pl.subplot(num_it/2+1,2,it+1).imshow(b)
+        print "b shape after crop: ", b.shape
+
 
     pl.subplot(2,1,1).imshow(b)
+    #print type(b)
+    # pl.subplot(2,1,1).imshow(b)
+    #b=b[:-patch_size, :-patch_size]
     #pl.subplot(num_it/2+1,2,num_it+2).imshow(a)
-    #pl.subplot(1,2,1).imshow(b)
     pl.subplot(2,1,2).imshow(a)
     pl.show()
-    
     return b
 
 def main():
-    a=pl.imread("../image/seam_carving.jpg")[::2,::2][::2,::2]
-    retarget(a,0.95,1)
+    a=pl.imread("../image/seam_carving.jpg")
+    retarget(a,0.9,1)
 
 if __name__=="__main__":
     main()

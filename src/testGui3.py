@@ -4,6 +4,8 @@
 
 from PyQt4 import QtCore, QtGui
 import cv2
+import time
+from retarget import *
 import numpy as np
 from qimage2ndarray import *
 from inpaint import *
@@ -227,10 +229,11 @@ class DrawArea(QtGui.QWidget):
 
     ##
     def myInpaint(self):
+
+
         op_image = img2np(self.op_image).copy()
         self.initOpImage()
-        self.update()
-
+        #self.update()
         # for i in range(100):
         #     img = np.random.randint(0, 255, op_image.shape[0]*op_image.shape[1]*3)
         #     img = img.reshape((op_image.shape[0], op_image.shape[1],3))
@@ -238,7 +241,6 @@ class DrawArea(QtGui.QWidget):
 
         img = inpaint(img2np(self.src_image), op_image)
         self.srcUpdate(img)
-
         print 'return'
     def myRetarget(self):
         print "in Retarget"
@@ -255,11 +257,13 @@ class DrawArea(QtGui.QWidget):
         widthDialog = QtGui.QInputDialog(self)
         widthDialog.setInputMode(1)
         (width_scale, ok)=heightDialog.getText(self ,"input Width Scale(1>)","Width Scale",QtGui.QLineEdit.Normal)
+        ok = bool()
+        (hscale_fl,ok) = height_scale.toFloat()
+        (wscale_fl ,ok)= width_scale.toFloat()
         print height_scale
         print width_scale
-
         
-        
+        new_img = retarget(img2np(self.src_image),wscale_fl, hscale_fl)
     
     def srcUpdate(self,new_src):
         # pass
@@ -268,7 +272,7 @@ class DrawArea(QtGui.QWidget):
         print 'srcUpdate'
         self.src_image = new_src
         #self.update()
-        self.paintEvent(self.rect())
+        # self.paintEvent(QtGui.QPaintEvent(self.rect()))
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self):
@@ -344,12 +348,11 @@ class MainWindow(QtGui.QMainWindow):
         self.clearScreenAct = QtGui.QAction("&Clear Screen", self,
             shortcut="Ctrl+L", triggered=self.scribbleArea.clearImage)
 
-        self.lineAct = QtGui.QAction("draw line",self, triggered=self.scribbleArea.drawLine)
-        self.recAct  =   QtGui.QAction("draw Rec",self, triggered=self.scribbleArea.drawRec)
-        self.maskAct =  QtGui.QAction("draw Mask",self, shortcut="Ctrl+M", triggered=self.scribbleArea.drawMask)
-        self.inpaintAct = QtGui.QAction("inpaint",self, shortcut="Ctrl+I", triggered=self.scribbleArea.myInpaint)
-        self.retargetAct = QtGui.QAction("retarget",self, shortcut="Ctrol+R", triggered=self.scribbleArea.myRetarget)
-
+        self.lineAct = QtGui.QAction("draw line",self,triggered=self.scribbleArea.drawLine)
+        self.recAct  =   QtGui.QAction("draw Rec",self,triggered=self.scribbleArea.drawRec)
+        self.maskAct =  QtGui.QAction("draw Mask",self,triggered=self.scribbleArea.drawMask)
+        self.inpaintAct = QtGui.QAction("inpaint",self,triggered=self.scribbleArea.myInpaint)
+        self.retargetAct = QtGui.QAction("retarget",self,triggered=self.scribbleArea.myRetarget)
 
 
     def createMenus(self):
@@ -396,7 +399,6 @@ class MainWindow(QtGui.QMainWindow):
                 return self.saveFile('png')
             elif ret == QtGui.QMessageBox.Cancel:
                 return False
-
         return True
 
     def saveFile(self, fileFormat):
@@ -410,11 +412,8 @@ class MainWindow(QtGui.QMainWindow):
 
         return False
 
-
 if __name__ == '__main__':
-
     import sys
-
     app = QtGui.QApplication(sys.argv)
     window = MainWindow()
     window.show()
