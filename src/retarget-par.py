@@ -2,10 +2,42 @@ import NNF_dll
 import numpy as np
 import cv2
 import matplotlib.pyplot as pl
-import scipy.ndimage as sci
 import math
+from multiprocessing import Process
 from inpaint import *
 
+
+class Worker(threading.Thread):
+  def __init__(self, inqueue, queue, running):
+    threading.Thread.__init__(self)
+    self.inqueue = inqueue
+    self.queue = queue
+    self.running = running
+
+  def run(self):
+    while self.running:
+      try:
+        patch_size, a, coh_ann, Ns, Nt, m, i, bshape1 = self.inqueue.get(block=False)
+        value = []
+        for j in range(patch_size/2, bshape1-(patch_size/2)):
+            p_com = np.zeros(3)
+            p_coh = np.zeros(3)
+            n=0#len(com_map[i][j])
+
+            for x in range (-(patch_size/2), patch_size/2+1):
+                for y in range (-(patch_size/2), patch_size/2+1):
+                    if coh_ann[i+x][j+y][1]-x>a.shape[1]-patch_size/2 or coh_ann[i+x][j+y][1]-x<patch_size/2:
+                        continue
+                    if coh_ann[i+x][j+y][0]-y>a.shape[0]-patch_size/2 or coh_ann[i+x][j+y][1]-y<patch_size/2:
+                        continue
+                    p_coh+=a[ int(coh_ann[i+x][j+y][0])-x , int(coh_ann[i+x][j+y][1])-y ]
+            value.append((p_com/Ns+p_coh/Nt)/(n/Ns+m/Nt))
+        self.queue.put((i, value))
+        self.running = False
+      except Queue.Empty:
+        pass
+      time.sleep(0)
+  
 def retarget(a1, w_ratio, h_ratio):
     patch_size=7
 
@@ -37,7 +69,11 @@ def retarget(a1, w_ratio, h_ratio):
         w_rate = max(0.95, w_ratio)
         h_rate = max(0.95, h_ratio)
 
-        
+        b1=cv2.resize(b,  (int(b.shape[1]*w_rate), int(b.shape[0]*h_rate)))
+        b =np.zeros((b1.shape[0]+patch_size-1,b1.shape[1]+patch_size-1,3), dtype=b1.dtype)
+        b[patch_size/2:-patch_size/2+1, patch_size/2:-patch_size/2+1]=b1
+    
+
         if b.shape[0] < targetShape[0] or b.shape[1] < targetShape[1]:
             if not b.shape[0]<targetShape[0]:
                 w_rate=1
@@ -45,11 +81,6 @@ def retarget(a1, w_ratio, h_ratio):
                 h_rate=1
             else:
                 break
-        b1=cv2.resize(b,  (int(b.shape[1]*w_rate), int(b.shape[0]*h_rate)))
-        b =np.zeros((b1.shape[0]+patch_size-1,b1.shape[1]+patch_size-1,3), dtype=b1.dtype)
-        b[patch_size/2:-patch_size/2+1, patch_size/2:-patch_size/2+1]=b1
-    
-
         #pl.imshow(b)
         #pl.show()
         #pl.imshow(b1)
@@ -68,55 +99,46 @@ def retarget(a1, w_ratio, h_ratio):
 
         com_map=[[[] for j in range(b.shape[1])] for i in range(b.shape[0])]
 
+
         # build mapping for complete match
-        for i in range(patch_size/2, a.shape[0]-(patch_size/2)):
-            for j in range(patch_size/2, a.shape[1]-(patch_size/2)):
+        for i in range(b.shape[0]):
+            for j in range(b.shape[1]):
                 com_map[int(com_ann[i][j][0])][int(com_ann[i][j][1])].append(com_ann[i][j].tolist())
+
         Ns=(a.shape[0]-patch_size)*(a.shape[1]-patch_size)*1.0
         Nt=(b.shape[0]-patch_size)*(b.shape[1]-patch_size)*1.0
+        m=(patch_size)**2
         # calculate value of each pixel
+        
+        workerQueue = Queue.Queue()
+        runningNumber = 0
         s = time.time()
         for i in range(patch_size/2, b.shape[0]-(patch_size/2)):
-            for j in range(patch_size/2, b.shape[1]-(patch_size/2)):
-                p_com = np.zeros(3)
-                p_coh = np.zeros(3)
-                n=0#len(com_map[i][j])
-                m=(patch_size)**2
-                num_com=0
+            inQueue = Queue.Queue()
+            worker = Worker(inQueue, workerQueue, True)
+            worker.start()
+            runningNumber += 1
+            inQueue.put((patch_size, a, coh_ann, Ns, Nt, m, i, b.shape[1]))
+        print b.shape[0] - patch_size, 'workers up'
 
-                if n>0:
-                    #for x in range (1):
-                    for x in range (-(patch_size/2), patch_size/2+1):
-                        #for y in range (1):
-                        for y in range (-(patch_size/2), patch_size/2+1):
-                            #print i,j, k, x, y,n
-                            #print com_map[i+x][j+y]
-                            for z in range(len(com_map[i+x][j+y])):
-                                if len(com_map[i+x][j+y])==0:
-                                    continue
-                                if com_map[i+x][j+y][z][0]-x>a.shape[0]-patch_size/2 or com_map[i+x][j+y][z][0]-x<patch_size/2:
-                                    continue
-                                if com_map[i+x][j+y][z][1]-y>a.shape[1]-patch_size/2 or com_map[i+x][j+y][z][1]-y<patch_size/2:
-                                    continue
-                                num_com+=1
-                                p_com+=a[ int(com_map[i+x][j+y][z][0]-x) , int(com_map[i+x][j+y][z][1]-y) ]
-                #for x in range (1):
-                for x in range (-(patch_size/2), patch_size/2+1):
-                    #for y in range (1):
-                    for y in range (-(patch_size/2), patch_size/2+1):
-                        if coh_ann[i+x][j+y][0]-x>a.shape[0]-patch_size/2 or coh_ann[i+x][j+y][0]-x<patch_size/2:
-                            #print (coh_ann[i+x][j+y]), i,j, x, y
-                            m-=1
-                            continue
-                        if coh_ann[i+x][j+y][1]-y>a.shape[1]-patch_size/2 or coh_ann[i+x][j+y][1]-y<patch_size/2:
-                            #print (coh_ann[i+x][j+y]), i,j, x, y
-                            m-=1
-                            continue
-                        p_coh+=a[ int(coh_ann[i+x][j+y][0])-x , int(coh_ann[i+x][j+y][1])-y ]
-
-                b[i][j]=((p_com/Ns+p_coh/Nt)/(num_com/Ns+m/Nt)).astype("int32")
+        k = 0
+        while k != runningNumber:
+            PlayerQueue.put(cv2.resize(b.copy(), (b.shape[1]*4, b.shape[0]*4)))
+            line, value = workerQueue.get(block=True)
+            k+=1
+            b[line, patch_size/2:b.shape[1]-(patch_size/2)]  = np.array(value)
             PlayerQueue.put(cv2.resize(b.copy(), (b.shape[1]*4, b.shape[0]*4)))
         print 'use', time.time() - s, 'second'
+        # while len(proc) != 0:
+        #     print 'remain proc', len(proc)
+        #     for p in proc:
+        #         if not p.is_alive():
+        #             proc.remove(p)
+        #     PlayerQueue.put(cv2.resize(b.copy(), (b.shape[1]*4, b.shape[0]*4)))
+        #     p.join()
+        #     time.sleep(0.016)
+            # runRow(patch_size, a, b, coh_ann, Ns, Nt, m, i)
+            
         b=b[patch_size/2:-patch_size/2, patch_size/2:-patch_size/2]
         print "b shape after crop: ", b.shape
 
@@ -131,13 +153,13 @@ def retarget(a1, w_ratio, h_ratio):
     # pl.subplot(2,1,1).imshow(b)
     #b=b[:-patch_size, :-patch_size]
     #pl.subplot(num_it/2+1,2,num_it+2).imshow(a)
-    pl.subplot(2,1,2).imshow(a1)
+    pl.subplot(2,1,2).imshow(a)
     pl.show()
     return b
 
 def main():
     a=pl.imread("../image/seam_carving.jpg")
-    retarget(a,0.95,1)
+    retarget(a,0.9,1)
 
 if __name__=="__main__":
     main()
