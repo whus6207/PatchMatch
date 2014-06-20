@@ -4,9 +4,16 @@ import cv2
 import matplotlib.pyplot as pl
 import scipy.ndimage as sci
 import math
+from inpaint import *
 
 def retarget(a1, w_ratio, h_ratio):
     patch_size=7
+
+    PlayerQueue = Queue.Queue()
+    running = [True]
+    Player = App(PlayerQueue, running)
+    Player.start()
+
     #w_rate=0.95
     #h_rate=1
     NNF_dll.setPatchW(patch_size)
@@ -83,15 +90,23 @@ def retarget(a1, w_ratio, h_ratio):
                     for y in range (-(patch_size/2), patch_size/2+1):
                         if coh_ann[i+x][j+y][1]-x>a.shape[1]-patch_size/2 or coh_ann[i+x][j+y][1]-x<patch_size/2:
                             #print (coh_ann[i+x][j+y]), i,j, x, y
+                            #m-=1
                             continue
                         if coh_ann[i+x][j+y][0]-y>a.shape[0]-patch_size/2 or coh_ann[i+x][j+y][1]-y<patch_size/2:
                             #print (coh_ann[i+x][j+y]), i,j, x, y
+                            #m-=1
                             continue
                         p_coh+=a[ int(coh_ann[i+x][j+y][0])-x , int(coh_ann[i+x][j+y][1])-y ]
 
                 b[i][j]=((p_com/Ns+p_coh/Nt)/(n/Ns+m/Nt)).astype("int32")
+            PlayerQueue.put(cv2.resize(b.copy(), (b.shape[1]*4, b.shape[0]*4)))
         b=b[patch_size/2:-patch_size/2, patch_size/2:-patch_size/2]
         print "b shape after crop: ", b.shape
+
+
+    while PlayerQueue.qsize() != 0 and running:
+        time.sleep(0)
+    running.pop()
 
 
     pl.subplot(2,1,1).imshow(b)
