@@ -35,10 +35,13 @@ def retarget(a, w_ratio, h_ratio):
         if 0.95**it<=w_ratio and 0.95**it<=h_ratio:
             iterate=False
 
-            
-        it+=1
+        
+        if it==1:
+            b=cv2.resize(a,  (int(a.shape[1]*h_rate), int(a.shape[0]*w_rate)))
+        else:
+            b=cv2.resize(b,  (int(b.shape[1]*h_rate), int(b.shape[0]*w_rate)))
 
-        b=cv2.resize(a,  (int(a.shape[1]*w_rate), int(a.shape[0]*h_rate)))
+        it+=1
         #pl.imshow(b1)
         #pl.show()
         #print "b1 shape=", b1.shape
@@ -64,7 +67,7 @@ def retarget(a, w_ratio, h_ratio):
 
         Ns=(a.shape[0]-patch_size)*(a.shape[1]-patch_size)*1.0
         Nt=(b.shape[0]-patch_size)*(b.shape[1]-patch_size)*1.0
-        m=(patch_size)**2
+        m=1#(patch_size)**2
         # calculate value of each pixel
         for i in range(patch_size/2, b.shape[0]-(patch_size/2)):
             for j in range(patch_size/2, b.shape[1]-(patch_size/2)):
@@ -75,19 +78,24 @@ def retarget(a, w_ratio, h_ratio):
                 #for k in range(n):
                 #    p_com+=a[ int(com_map[i][j][k][0]) ][ int(com_map[i][j][k][1]) ]
                 
-                #for x in range (1):
-                for x in range (-(patch_size/2), patch_size/2+1):
-                    #for y in range (1):
-                    for y in range (-(patch_size/2), patch_size/2+1):
+                for x in range (1):
+                #for x in range (-(patch_size/2), patch_size/2+1):
+                    for y in range (1):
+                    #for y in range (-(patch_size/2), patch_size/2+1):
                         if coh_ann[i+x][j+y][1]-y>=a.shape[1]:
                             print (coh_ann[i+x][j+y]), i,j, x, y
+                            continue
+                        if coh_ann[i+x][j+y][0]-x>=a.shape[0]:
+                            print (coh_ann[i+x][j+y]), i,j, x, y
+                            continue
                         p_coh+=a[ int(coh_ann[i+x][j+y][0])-x ][ int(coh_ann[i+x][j+y][1])-y ]
 
                 b[i][j]=((p_com/Ns+p_coh/Nt)/(n/Ns+m/Nt)).astype("int32")
+        
+        b=b[patch_size/2:-patch_size/2, patch_size/2:-patch_size/2]
         #pl.subplot(num_it/2+1,2,it+1).imshow(b)
 
     pl.subplot(2,1,1).imshow(b)
-    b=b[:-patch_size, :-patch_size]
     #pl.subplot(num_it/2+1,2,num_it+2).imshow(a)
     #pl.subplot(1,2,1).imshow(b)
     pl.subplot(2,1,2).imshow(a)
@@ -97,7 +105,7 @@ def retarget(a, w_ratio, h_ratio):
 
 def main():
     a=pl.imread("../image/seam_carving.jpg")[::2,::2][::2,::2]
-    retarget(a,0.8,1)
+    retarget(a,0.95,1)
 
 if __name__=="__main__":
     main()
