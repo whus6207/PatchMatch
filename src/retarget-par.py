@@ -2,10 +2,42 @@ import NNF_dll
 import numpy as np
 import cv2
 import matplotlib.pyplot as pl
-import scipy.ndimage as sci
 import math
+from multiprocessing import Process
 from inpaint import *
 
+
+class Worker(threading.Thread):
+  def __init__(self, inqueue, queue, running):
+    threading.Thread.__init__(self)
+    self.inqueue = inqueue
+    self.queue = queue
+    self.running = running
+
+  def run(self):
+    while self.running:
+      try:
+        patch_size, a, coh_ann, Ns, Nt, m, i, bshape1 = self.inqueue.get(block=False)
+        value = []
+        for j in range(patch_size/2, bshape1-(patch_size/2)):
+            p_com = np.zeros(3)
+            p_coh = np.zeros(3)
+            n=0#len(com_map[i][j])
+
+            for x in range (-(patch_size/2), patch_size/2+1):
+                for y in range (-(patch_size/2), patch_size/2+1):
+                    if coh_ann[i+x][j+y][1]-x>a.shape[1]-patch_size/2 or coh_ann[i+x][j+y][1]-x<patch_size/2:
+                        continue
+                    if coh_ann[i+x][j+y][0]-y>a.shape[0]-patch_size/2 or coh_ann[i+x][j+y][1]-y<patch_size/2:
+                        continue
+                    p_coh+=a[ int(coh_ann[i+x][j+y][0])-x , int(coh_ann[i+x][j+y][1])-y ]
+            value.append((p_com/Ns+p_coh/Nt)/(n/Ns+m/Nt))
+        self.queue.put((i, value))
+        self.running = False
+      except Queue.Empty:
+        pass
+      time.sleep(0)
+  
 def retarget(a1, w_ratio, h_ratio):
     patch_size=7
 
@@ -67,6 +99,7 @@ def retarget(a1, w_ratio, h_ratio):
 
         com_map=[[[] for j in range(b.shape[1])] for i in range(b.shape[0])]
 
+
         # build mapping for complete match
         for i in range(b.shape[0]):
             for j in range(b.shape[1]):
@@ -76,32 +109,36 @@ def retarget(a1, w_ratio, h_ratio):
         Nt=(b.shape[0]-patch_size)*(b.shape[1]-patch_size)*1.0
         m=(patch_size)**2
         # calculate value of each pixel
+        
+        workerQueue = Queue.Queue()
+        runningNumber = 0
         s = time.time()
         for i in range(patch_size/2, b.shape[0]-(patch_size/2)):
-            for j in range(patch_size/2, b.shape[1]-(patch_size/2)):
-                p_com = np.zeros(3)
-                p_coh = np.zeros(3)
-                n=0#len(com_map[i][j])
+            inQueue = Queue.Queue()
+            worker = Worker(inQueue, workerQueue, True)
+            worker.start()
+            runningNumber += 1
+            inQueue.put((patch_size, a, coh_ann, Ns, Nt, m, i, b.shape[1]))
+        print b.shape[0] - patch_size, 'workers up'
 
-                #for k in range(n):
-                #    p_com+=a[ int(com_map[i][j][k][0]) , int(com_map[i][j][k][1]) ]
-                #for x in range (1):
-                for x in range (-(patch_size/2), patch_size/2+1):
-                    #for y in range (1):
-                    for y in range (-(patch_size/2), patch_size/2+1):
-                        if coh_ann[i+x][j+y][1]-x>a.shape[1]-patch_size/2 or coh_ann[i+x][j+y][1]-x<patch_size/2:
-                            #print (coh_ann[i+x][j+y]), i,j, x, y
-                            #m-=1
-                            continue
-                        if coh_ann[i+x][j+y][0]-y>a.shape[0]-patch_size/2 or coh_ann[i+x][j+y][1]-y<patch_size/2:
-                            #print (coh_ann[i+x][j+y]), i,j, x, y
-                            #m-=1
-                            continue
-                        p_coh+=a[ int(coh_ann[i+x][j+y][0])-x , int(coh_ann[i+x][j+y][1])-y ]
-
-                b[i][j]=((p_com/Ns+p_coh/Nt)/(n/Ns+m/Nt)).astype("int32")
+        k = 0
+        while k != runningNumber:
+            PlayerQueue.put(cv2.resize(b.copy(), (b.shape[1]*4, b.shape[0]*4)))
+            line, value = workerQueue.get(block=True)
+            k+=1
+            b[line, patch_size/2:b.shape[1]-(patch_size/2)]  = np.array(value)
             PlayerQueue.put(cv2.resize(b.copy(), (b.shape[1]*4, b.shape[0]*4)))
         print 'use', time.time() - s, 'second'
+        # while len(proc) != 0:
+        #     print 'remain proc', len(proc)
+        #     for p in proc:
+        #         if not p.is_alive():
+        #             proc.remove(p)
+        #     PlayerQueue.put(cv2.resize(b.copy(), (b.shape[1]*4, b.shape[0]*4)))
+        #     p.join()
+        #     time.sleep(0.016)
+            # runRow(patch_size, a, b, coh_ann, Ns, Nt, m, i)
+            
         b=b[patch_size/2:-patch_size/2, patch_size/2:-patch_size/2]
         print "b shape after crop: ", b.shape
 
