@@ -124,6 +124,11 @@ def inpaint(img, mask, canvas = None):
     for index, (x, y) in enumerate(mask.yeildOrder()):
       img1[x, y] = img[ann[x-ul[0], y-ul[1]][0] + ul[0], ann[x-ul[0], y-ul[1]][1] + ul[1]]
 
+      # srcBlock, upper = getblock(img1, (x, y), size=patch_w*2)
+      # dstBlock, upper = getblock(img, (ann[x-ul[0], y-ul[1]][0] + ul[0], ann[x-ul[0], y-ul[1]][1] + ul[1]), size=patch_w*2)
+      # npl.subplot(2,1,1).imshow(srcBlock)
+      # npl.subplot(2,1,2).imshow(dstBlock)
+      # npl.show()
       # if canvas is not None:
       #   canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
       if PlayerQueue is not None and index % 10 == 0:
@@ -138,13 +143,12 @@ def inpaint(img, mask, canvas = None):
   return cv2.resize(img1.copy(), (oriShape[1], oriShape[0]))
 
 
-
 def main():
   origin = npl.imread('../image/seam_carving.jpg')
   mask = npl.imread('../image/seam_carving-mask.jpg')
 
-  # origin = npl.imread('../image/example5.jpg')
-  # mask = npl.imread('../image/example5-mask.jpg')
+  # origin = npl.imread('../image/example6.jpg')
+  # mask = npl.imread('../image/example6-mask.jpg')
 
 
   start = time.time()
@@ -154,3 +158,4 @@ def main():
 
 if __name__ == "__main__":
   main()
+
