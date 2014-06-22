@@ -70,25 +70,7 @@ class Mask:
     for i in blank:
       yield i[0]
 
-def getNearBy(pos, size=3, limit=(None, None)):
-  r = range(-(size/2), size/2+1, 1)
-  for i in r:
-    for j in r:
-      x = pos[0]+i if pos[0]+i >= 0 else -(pos[0]+i)
-      y = pos[1]+j if pos[1]+j >= 0 else -(pos[1]+j)
-      if limit[0] and x >= limit[0]:
-        x = 2*limit[0] - x - 1
-      if limit[1] and y >= limit[1]:
-        y = 2*limit[1] - y - 1
-      yield (x, y)        
-
-
-def getblock(img, pos, size=7):
-  block = img[pos[0]-size/2: pos[0]+size/2+1, pos[1]-size/2: pos[1]+size/2+1]
-  return block, (pos[0]-size/2, pos[1]-size/2)
-
-
-def inpaint(img, mask, canvas = None):
+def inpaint(img, mask, canvas = None, show=False):
   global patch_w
 
   PlayerQueue = Queue.Queue()
@@ -115,49 +97,43 @@ def inpaint(img, mask, canvas = None):
     ul = [max(mask.bbox[0][0] - img.shape[0]/3, 0), max(mask.bbox[0][1] - img.shape[1]/3, 0)]
     br = [min(mask.bbox[1][0] + img.shape[0]/3, img.shape[0]), min(mask.bbox[1][1] + img.shape[1]/3, img.shape[1])]
 
-    # ul = [0, 0]
-    # br = [img.shape[0], img.shape[1]]
     setMaskedArea(mask.img[ul[0]: br[0], ul[1]: br[1]])
     bitmap1 = np2Bitmap(img[ul[0]: br[0], ul[1]: br[1]])
     bitmap2 = np2Bitmap(img[ul[0]: br[0], ul[1]: br[1]])
     ann, annd = patchmatch(bitmap1, bitmap2)
+    k = 0
     for index, (x, y) in enumerate(mask.yeildOrder()):
-      pos = [ann[x-ul[0], y-ul[1]][0] + ul[0], ann[x-ul[0], y-ul[1]][1] + ul[1]]
+      pos = map(int, [ann[x-ul[0], y-ul[1]][0] + ul[0], ann[x-ul[0], y-ul[1]][1] + ul[1]])
+
+      if show and np.random.rand(1)[0] > 0.9:
+        k += 1
+        showMatch((x, y), pos, img1, img, show=False, subplotIndex=(3,1,k))
+        if k == 3:
+          k = 0
+          npl.subplots_adjust(left=0., right=1., top=1., bottom=0.0, wspace=0.02, hspace=0.)
+          npl.show()
+      
       img1[x, y] = img[pos[0], pos[1]]
 
-      # srcBlock, upper = getblock(img1, (x, y), size=patch_w*2)
-      # dstBlock, upper = getblock(img, (ann[x-ul[0], y-ul[1]][0] + ul[0], ann[x-ul[0], y-ul[1]][1] + ul[1]), size=patch_w*2)
-      # npl.subplot(2,1,1).imshow(srcBlock)
-      # npl.subplot(2,1,2).imshow(dstBlock)
-      # npl.show()
-      # if canvas is not None:
-      #   canvas.srcUpdate(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
-      if PlayerQueue is not None and index % 10 == 0:
-        PlayerQueue.put(img1.copy())
-        # PlayerQueue.put(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
+      # if PlayerQueue is not None and index % 10 == 0:
+      #   PlayerQueue.put(img1.copy())
     mask.shrink()
 
   while PlayerQueue.qsize() != 0 and running:
     time.sleep(0)
   running.pop()
-  img1[:, :, [0, 2]] = img1[:, :, [2, 0]]
-  cv2.imshow('frame', img1)
-  cv2.waitKey(0)
-  # npl.subplot(1,1,1).imshow(cv2.resize(img1.copy(), (oriShape[1], oriShape[0])))
-  # npl.show()
   return cv2.resize(img1.copy(), (oriShape[1], oriShape[0]))
 
 
 def main():
-  # origin = npl.imread('../image/seam_carving.jpg')
-  # mask = npl.imread('../image/seam_carving-mask.jpg')
+  origin = npl.imread('../image/seam_carving.jpg')
+  mask = npl.imread('../image/seam_carving-mask.jpg')
 
-  origin = npl.imread('../image/example.jpg')
-  mask = npl.imread('../image/example-mask.jpg')
-
-
+  # origin = npl.imread('../image/example6.jpg')
+  # mask = npl.imread('../image/example6-mask.jpg')
+  print origin.shape
   start = time.time()
-  inpaint(origin, mask)
+  final = inpaint(origin, mask)
   print 'use', time.time() - start, 'second'
   return
 
